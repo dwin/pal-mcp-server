@@ -95,8 +95,8 @@ class TestAutoModeComprehensive:
                 },
                 {
                     "EXTENDED_REASONING": "gpt-5.1-codex",  # GPT-5.1 Codex prioritized for coding tasks
-                    "FAST_RESPONSE": "gpt-5.1",  # Prefer gpt-5.1 for speed
-                    "BALANCED": "gpt-5.1",  # Prefer gpt-5.1 for balanced
+                    "FAST_RESPONSE": "gpt-5.2",  # Prefer gpt-5.2 for speed
+                    "BALANCED": "gpt-5.2",  # Prefer gpt-5.2 for balanced
                 },
             ),
             # Only X.AI API available
@@ -108,9 +108,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4",  # GROK-4 for reasoning (now preferred)
-                    "FAST_RESPONSE": "grok-3-fast",  # GROK-3-fast for speed
-                    "BALANCED": "grok-4",  # GROK-4 as balanced (now preferred)
+                    "EXTENDED_REASONING": "grok-4-1-fast-reasoning",  # Latest Grok 4.1 Fast Reasoning
+                    "FAST_RESPONSE": "grok-4-1-fast-reasoning",  # Latest fast SKU
+                    "BALANCED": "grok-4-1-fast-reasoning",  # Latest balanced default
                 },
             ),
             # Both Gemini and OpenAI available - Google comes first in priority
