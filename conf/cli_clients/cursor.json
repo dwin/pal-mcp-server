@@ -1,11 +1,8 @@
 {
-  "name": "claude",
-  "command": "claude",
+  "name": "cursor",
+  "command": "cursor-agent",
   "additional_args": [
-    "--permission-mode",
-    "acceptEdits",
-    "--model",
-    "opus"
+    "--force"
   ],
   "env": {},
   "roles": {

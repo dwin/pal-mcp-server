@@ -17,7 +17,7 @@
       "max_image_size_mb": "Maximum total size in MB for all images combined (capped at 40MB max for custom models)",
       "supports_temperature": "Whether the model accepts temperature parameter in API calls (set to false for O3/O4 reasoning models)",
       "temperature_constraint": "Type of temperature constraint: 'fixed' (fixed value), 'range' (continuous range), 'discrete' (specific values), or omit for default range",
-      "use_openai_response_api": "Set to true when the model must use the /responses endpoint (reasoning models like GPT-5 Pro). Leave false/omit for standard chat completions.",
+      "use_openai_response_api": "Set to true when the model must use the /responses endpoint (reasoning models like GPT-5.2 Pro). Leave false/omit for standard chat completions.",
       "default_reasoning_effort": "Default reasoning effort level for models that support it (e.g., 'low', 'medium', 'high'). Omit if not applicable.",
       "description": "Human-readable description of the model",
       "intelligence_score": "1-20 human rating used as the primary signal for auto-mode model ordering",
@@ -26,37 +26,18 @@
   },
   "models": [
     {
-      "model_name": "gpt-5",
-      "friendly_name": "OpenAI (GPT-5)",
+      "model_name": "gpt-5.2-pro",
+      "friendly_name": "OpenAI (GPT-5.2 Pro)",
       "aliases": [
-        "gpt5",
-        "gpt-5"
-      ],
-      "intelligence_score": 16,
-      "description": "GPT-5 (400K context, 128K output) - Advanced model with reasoning support",
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": false,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "gpt-5-pro",
-      "friendly_name": "OpenAI (GPT-5 Pro)",
-      "aliases": [
+        "gpt5.2-pro",
+        "gpt5.2pro",
         "gpt5pro",
         "gpt5-pro"
       ],
-      "intelligence_score": 18,
-      "description": "GPT-5 Pro (400K context, 272K output) - Very advanced, reasoning model",
+      "intelligence_score": 19,
+      "description": "GPT-5.2 Pro (400K context, 128K output) - Very advanced, reasoning model. Very expensive - Use with caution. Prefer gpt-5.2 unless explicitly requested or needed.",
       "context_window": 400000,
-      "max_output_tokens": 272000,
+      "max_output_tokens": 128000,
       "supports_extended_thinking": true,
       "supports_system_prompts": true,
       "supports_streaming": false,
@@ -78,7 +59,7 @@
         "gpt5mini",
         "mini"
       ],
-      "intelligence_score": 15,
+      "intelligence_score": 13,
       "description": "GPT-5-mini (400K context, 128K output) - Efficient variant with reasoning support",
       "context_window": 400000,
       "max_output_tokens": 128000,
@@ -112,64 +93,6 @@
       "supports_images": true,
       "supports_temperature": true,
       "max_image_size_mb": 20.0,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "o3",
-      "friendly_name": "OpenAI (O3)",
-      "intelligence_score": 14,
-      "description": "Strong reasoning (200K context) - Logical problems, code generation, systematic analysis",
-      "context_window": 200000,
-      "max_output_tokens": 65536,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": false,
-      "max_image_size_mb": 20.0,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "o3-mini",
-      "friendly_name": "OpenAI (O3-mini)",
-      "aliases": [
-        "o3mini"
-      ],
-      "intelligence_score": 12,
-      "description": "Fast O3 variant (200K context) - Balanced performance/speed, moderate complexity",
-      "context_window": 200000,
-      "max_output_tokens": 65536,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": false,
-      "max_image_size_mb": 20.0,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "o3-pro",
-      "friendly_name": "OpenAI (O3-Pro)",
-      "aliases": [
-        "o3pro"
-      ],
-      "intelligence_score": 15,
-      "description": "Professional-grade reasoning with advanced capabilities (200K context)",
-      "context_window": 200000,
-      "max_output_tokens": 65536,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": false,
-      "max_image_size_mb": 20.0,
-      "use_openai_response_api": true,
       "temperature_constraint": "fixed"
     },
     {
@@ -211,38 +134,15 @@
       "max_image_size_mb": 20.0
     },
     {
-      "model_name": "gpt-5-codex",
-      "friendly_name": "OpenAI (GPT-5 Codex)",
+      "model_name": "gpt-5.2",
+      "friendly_name": "OpenAI (GPT-5.2)",
       "aliases": [
-        "gpt5-codex",
-        "codex",
-        "gpt-5-code",
-        "gpt5-code"
-      ],
-      "intelligence_score": 17,
-      "description": "GPT-5 Codex (400K context) Specialized for coding, refactoring, and software architecture.",
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "use_openai_response_api": true
-    },
-    {
-      "model_name": "gpt-5.1",
-      "friendly_name": "OpenAI (GPT-5.1)",
-      "aliases": [
-        "gpt5.1",
-        "gpt-5.1",
-        "5.1"
+        "gpt5.2",
+        "gpt-5.2",
+        "5.2"
       ],
       "intelligence_score": 18,
-      "description": "GPT-5.1 (400K context, 128K output) - Flagship reasoning model with configurable thinking effort and vision support.",
+      "description": "GPT-5.2 (400K context, 128K output) - Flagship reasoning model with configurable thinking effort and vision support.",
       "context_window": 400000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
@@ -258,6 +158,32 @@
       "temperature_constraint": "fixed"
     },
     {
+      "model_name": "gpt-5.2-codex",
+      "friendly_name": "OpenAI (GPT-5.2 Codex)",
+      "aliases": [
+        "gpt5.2-codex",
+        "gpt-5.2-codex",
+        "codex-5.2",
+        "5.2-codex"
+      ],
+      "intelligence_score": 17,
+      "description": "GPT-5.2 Codex (400K context, 128K output) - Premier coding specialization with advanced agentic capabilities available through the Responses API.",
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": false,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "max_image_size_mb": 20.0,
+      "use_openai_response_api": true,
+      "default_reasoning_effort": "high",
+      "allow_code_generation": true,
+      "temperature_constraint": "fixed"
+    },
+    {
       "model_name": "gpt-5.1-codex",
       "friendly_name": "OpenAI (GPT-5.1 Codex)",
       "aliases": [
@@ -267,7 +193,7 @@
         "gpt-5.1-code",
         "codex-5.1"
       ],
-      "intelligence_score": 19,
+      "intelligence_score": 16,
       "description": "GPT-5.1 Codex (400K context, 128K output) - Agentic coding specialization available through the Responses API.",
       "context_window": 400000,
       "max_output_tokens": 128000,
@@ -293,7 +219,7 @@
         "codex-mini",
         "5.1-codex-mini"
       ],
-      "intelligence_score": 16,
+      "intelligence_score": 15,
       "description": "GPT-5.1 Codex mini (400K context, 128K output) - Cost-efficient Codex variant with streaming support.",
       "context_window": 400000,
       "max_output_tokens": 128000,
