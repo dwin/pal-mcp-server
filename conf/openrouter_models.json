@@ -98,12 +98,13 @@
       "intelligence_score": 13
     },
     {
-      "model_name": "google/gemini-3-pro-preview",
+      "model_name": "google/gemini-3.1-pro-preview",
       "aliases": [
+        "gemini-3.1-pro",
+        "gemini3.1",
         "pro",
         "gemini-pro",
         "gemini",
-        "gemini3",
         "pro-openrouter"
       ],
       "context_window": 1048576,
@@ -113,8 +114,27 @@
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 20.0,
+      "supports_temperature": true,
+      "default_reasoning_effort": "medium",
       "allow_code_generation": true,
-      "description": "Google's Gemini 3.0 Pro via OpenRouter with vision",
+      "description": "Gemini 3.1 Pro (1M context, 65K output) - Latest reasoning-first model with enhanced agentic and coding capabilities via OpenRouter",
+      "intelligence_score": 19
+    },
+    {
+      "model_name": "google/gemini-3-pro-preview",
+      "aliases": [
+        "gemini3",
+        "gemini-3-pro"
+      ],
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "description": "Gemini 3.0 Pro (1M context) - Prefer gemini-3.1-pro-preview for improved reasoning and agentic capabilities.",
       "intelligence_score": 18
     },
     {
@@ -130,7 +150,7 @@
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 15.0,
-      "description": "Google's Gemini 3.0 Flash Previewvia OpenRouter with vision",
+      "description": "Gemini 3.0 Flash (1M context) - High-speed model. No 3.1 Flash yet; still the recommended flash-tier model.",
       "intelligence_score": 15
     },
     {
@@ -280,7 +300,6 @@
     {
       "model_name": "openai/gpt-5-codex",
       "aliases": [
-        "codex",
         "gpt5codex"
       ],
       "context_window": 400000,
@@ -290,7 +309,7 @@
       "supports_function_calling": false,
       "supports_images": false,
       "max_image_size_mb": 0.0,
-      "description": "GPT-5-Codex is a specialized version of GPT-5 optimized for software engineering and coding workflows",
+      "description": "GPT-5-Codex - Legacy coding model. Prefer gpt-5.3-codex or gpt-5.3-codex-spark for newer capabilities.",
       "intelligence_score": 17
     },
     {
@@ -352,6 +371,30 @@
       "intelligence_score": 18
     },
     {
+      "model_name": "openai/gpt-5.3-codex",
+      "aliases": [
+        "gpt5.3-codex",
+        "gpt-5.3-codex",
+        "5.3-codex",
+        "codex-5.3",
+        "codex"
+      ],
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": true,
+      "temperature_constraint": "fixed",
+      "use_openai_response_api": true,
+      "default_reasoning_effort": "high",
+      "allow_code_generation": true,
+      "description": "GPT-5.3 Codex (400K context, 128K output) - Latest agentic coding model with enhanced reasoning capabilities",
+      "intelligence_score": 18
+    },
+    {
       "model_name": "openai/gpt-5.2-codex",
       "aliases": [
         "gpt5.2-codex",
@@ -371,7 +414,7 @@
       "use_openai_response_api": true,
       "default_reasoning_effort": "high",
       "allow_code_generation": true,
-      "description": "GPT-5.2 Codex (400K context, 128K output) - Advanced agentic coding model with enhanced reasoning capabilities",
+      "description": "GPT-5.2 Codex (400K context, 128K output) - Agentic coding model. Prefer gpt-5.3-codex for newer capabilities.",
       "intelligence_score": 17
     },
     {
