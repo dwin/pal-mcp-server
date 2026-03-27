@@ -182,13 +182,9 @@ def build_workflow_descriptions(activity: str) -> dict[str, str]:
         "findings": f"Capture findings from this {activity} step; update prior findings as needed.",
         "files_checked": "Absolute paths of every file examined, including those ruled out.",
         "relevant_files": (
-            "Files directly relevant to findings (absolute paths). "
-            "Must be absolute full non-abbreviated paths."
+            "Files directly relevant to findings (absolute paths). " "Must be absolute full non-abbreviated paths."
         ),
-        "relevant_context": (
-            "Key functions/methods central to findings "
-            "(e.g. 'Class.method' or 'function_name')."
-        ),
+        "relevant_context": ("Key functions/methods central to findings " "(e.g. 'Class.method' or 'function_name')."),
         "issues_found": "Issues with severity (critical/high/medium/low) and descriptions.",
         "confidence": (
             "Confidence: exploring/low/medium/high/very_high/almost_certain/certain. "
@@ -232,8 +228,5 @@ class StandardWorkflowRequest(WorkflowRequest):
         if field and self.step_number == 1:
             value = getattr(self, field, None)
             if not value:
-                raise ValueError(
-                    self._step_one_error_message
-                    or f"Step 1 requires '{field}' field"
-                )
+                raise ValueError(self._step_one_error_message or f"Step 1 requires '{field}' field")
         return self
