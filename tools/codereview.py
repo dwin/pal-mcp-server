@@ -69,7 +69,7 @@ class CodeReviewRequest(StandardWorkflowRequest):
     # Deprecated confidence field kept for backward compatibility only
     confidence: Optional[str] = Field("low", exclude=True)
     review_validation_type: Optional[Literal["external", "internal"]] = Field(
-        "external", description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["review_validation_type"]
+        "external", description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS.get("review_validation_type", "")
     )
 
     # Code review-specific fields (only used in step 1 to initialize)
