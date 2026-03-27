@@ -28,7 +28,7 @@ from mcp.types import TextContent
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import CONSENSUS_PROMPT
-from tools.shared.base_models import ConsolidatedFindings, WorkflowRequest
+from tools.shared.base_models import ConsolidatedFindings, StandardWorkflowRequest, build_workflow_descriptions
 from utils.conversation_memory import MAX_CONVERSATION_TURNS, create_thread, get_thread
 
 from .workflow.base import WorkflowTool
@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for consensus workflow
 CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("consensus"),
     "step": (
         "Consensus prompt. Step 1: write the exact proposal/question every model will see (use 'Evaluate…', not meta commentary). "
         "Steps 2+: capture internal notes about the latest model response—these notes are NOT sent to other models."
@@ -55,21 +56,19 @@ CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS = {
     ),
     "current_model_index": "0-based index of the next model to consult (managed internally).",
     "model_responses": "Internal log of responses gathered so far.",
-    "images": "Optional absolute image paths or base64 references that add helpful visual context.",
 }
 
 
-class ConsensusRequest(WorkflowRequest):
+class ConsensusRequest(StandardWorkflowRequest):
     """Request model for consensus workflow steps"""
 
-    # Required fields for each step
+    # Override step with tool-specific description
     step: str = Field(..., description=CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"])
 
-    # Investigation tracking fields
+    # Override findings with tool-specific description
     findings: str = Field(..., description=CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["findings"])
+
+    # Confidence excluded (not used in consensus)
     confidence: str = Field(default="exploring", exclude=True, description="Not used")
 
     # Consensus-specific fields (only needed in step 1)
@@ -88,13 +87,6 @@ class ConsensusRequest(WorkflowRequest):
         default_factory=list,
         description=CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["model_responses"],
     )
-
-    # Optional images for visual debugging
-    images: list[str] | None = Field(default=None, description=CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["images"])
-
-    # Override inherited fields to exclude them from schema
-    temperature: float | None = Field(default=None, exclude=True)
-    thinking_mode: str | None = Field(default=None, exclude=True)
 
     # Not used in consensus workflow
     files_checked: list[str] | None = Field(default_factory=list, exclude=True)

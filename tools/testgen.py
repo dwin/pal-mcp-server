@@ -18,14 +18,14 @@ Key features:
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import TESTGEN_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -33,14 +33,13 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for test generation workflow
 TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("test generation"),
     "step": (
         "Test plan for this step. Step 1: outline how you'll analyse structure, business logic, critical paths, and edge cases. Later steps: record findings and new scenarios as they emerge."
     ),
-    "step_number": "Current test-generation step (starts at 1) — each step should build on prior work.",
     "total_steps": "Estimated number of steps needed for test planning; adjust as new scenarios appear.",
     "next_step_required": "True while more investigation or planning remains; set False when test planning is ready for expert validation.",
     "findings": "Summarise functionality, critical paths, edge cases, boundary conditions, error handling, and existing test patterns. Cover both happy and failure paths.",
-    "files_checked": "Absolute paths of every file examined, including those ruled out.",
     "relevant_files": "Absolute paths of code that requires new or updated tests (implementation, dependencies, existing test fixtures).",
     "relevant_context": "Functions/methods needing coverage (e.g. 'Class.method', 'function_name'), with emphasis on critical paths and error-prone code.",
     "confidence": (
@@ -51,45 +50,20 @@ TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS = {
         "Do NOT use 'certain' unless the test generation analysis is comprehensively complete, use 'very_high' or 'almost_certain' instead if not 100% sure. "
         "Using 'certain' means you have complete confidence locally and prevents external model validation."
     ),
-    "images": "Optional absolute paths to diagrams or visuals that clarify the system under test.",
 }
 
 
-class TestGenRequest(WorkflowRequest):
+class TestGenRequest(StandardWorkflowRequest):
     """Request model for test generation workflow investigation steps"""
 
-    # Required fields for each investigation step
+    _step_one_required_field = "relevant_files"
+    _step_one_error_message = "Step 1 requires 'relevant_files' field to specify code files to generate tests for"
+
+    # Override step with tool-specific description
     step: str = Field(..., description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"])
 
-    # Investigation tracking fields
-    findings: str = Field(..., description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["findings"])
-    files_checked: list[str] = Field(
-        default_factory=list, description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"]
-    )
-    relevant_files: list[str] = Field(
-        default_factory=list, description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"]
-    )
-    relevant_context: list[str] = Field(
-        default_factory=list, description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["relevant_context"]
-    )
+    # Custom confidence description
     confidence: Optional[str] = Field("low", description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["confidence"])
-
-    # Optional images for visual context
-    images: Optional[list[str]] = Field(default=None, description=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["images"])
-
-    # Override inherited fields to exclude them from schema (except model which needs to be available)
-    temperature: Optional[float] = Field(default=None, exclude=True)
-    thinking_mode: Optional[str] = Field(default=None, exclude=True)
-
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required relevant_files field."""
-        if self.step_number == 1 and not self.relevant_files:
-            raise ValueError("Step 1 requires 'relevant_files' field to specify code files to generate tests for")
-        return self
 
 
 class TestGenTool(WorkflowTool):
@@ -106,7 +80,6 @@ class TestGenTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
 
     def get_name(self) -> str:
         return "testgen"

@@ -68,6 +68,8 @@ class WorkflowTool(BaseTool, BaseWorkflowMixin):
         """Initialize WorkflowTool with proper multiple inheritance."""
         BaseTool.__init__(self)
         BaseWorkflowMixin.__init__(self)
+        self.initial_request = None
+        self.tool_config: dict = {}
 
     def get_tool_fields(self) -> dict[str, dict[str, Any]]:
         """

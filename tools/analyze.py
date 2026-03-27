@@ -19,14 +19,14 @@ Key features:
 import logging
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import ANALYZE_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -34,14 +34,11 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for analyze workflow
 ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("analysis"),
     "step": (
         "The analysis plan. Step 1: State your strategy, including how you will map the codebase structure, "
         "understand business logic, and assess code quality, performance implications, and architectural patterns. "
         "Later steps: Report findings and adapt the approach as new insights emerge."
-    ),
-    "step_number": (
-        "The index of the current step in the analysis sequence, beginning at 1. Each step should build upon or "
-        "revise the previous one."
     ),
     "total_steps": (
         "Your current estimate for how many steps will be needed to complete the analysis. "
@@ -57,9 +54,6 @@ ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS = {
         "IMPORTANT: Document both strengths (good patterns, solid architecture) and concerns (tech debt, overengineering, unnecessary complexity). "
         "In later steps, confirm or update past findings with additional evidence."
     ),
-    "files_checked": (
-        "List all files examined (absolute paths). Include even ruled-out files to track exploration path."
-    ),
     "relevant_files": (
         "Subset of files_checked directly relevant to analysis findings (absolute paths). Include files with "
         "significant patterns, architectural decisions, or strategic improvement opportunities."
@@ -67,9 +61,6 @@ ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS = {
     "relevant_context": (
         "List methods/functions central to analysis findings, in 'ClassName.methodName' or 'functionName' format. "
         "Prioritize those demonstrating key patterns, architectural decisions, or improvement opportunities."
-    ),
-    "images": (
-        "Optional absolute paths to architecture diagrams or visual references that help with analysis context."
     ),
     "confidence": (
         "Your confidence in the analysis: exploring, low, medium, high, very_high, almost_certain, or certain. "
@@ -80,54 +71,22 @@ ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS = {
 }
 
 
-class AnalyzeWorkflowRequest(WorkflowRequest):
+class AnalyzeWorkflowRequest(StandardWorkflowRequest):
     """Request model for analyze workflow investigation steps"""
 
-    # Required fields for each investigation step
+    _step_one_required_field = "relevant_files"
+    _step_one_error_message = "Step 1 requires 'relevant_files' field to specify files or directories to analyze"
+
+    # Override step with tool-specific description
     step: str = Field(..., description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"])
-
-    # Investigation tracking fields
-    findings: str = Field(..., description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["findings"])
-    files_checked: list[str] = Field(
-        default_factory=list, description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"]
-    )
-    relevant_files: list[str] = Field(
-        default_factory=list, description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"]
-    )
-    relevant_context: list[str] = Field(
-        default_factory=list, description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["relevant_context"]
-    )
-
-    # Issues found during analysis (structured with severity)
-    issues_found: list[dict] = Field(
-        default_factory=list,
-        description="Issues or concerns identified during analysis, each with severity level (critical, high, medium, low)",
-    )
-
-    # Optional images for visual context
-    images: Optional[list[str]] = Field(default=None, description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["images"])
 
     # Analyze-specific fields (only used in step 1 to initialize)
-    # Note: Use relevant_files field instead of files for consistency across workflow tools
     analysis_type: Optional[Literal["architecture", "performance", "security", "quality", "general"]] = Field(
         "general", description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["analysis_type"]
     )
     output_format: Optional[Literal["summary", "detailed", "actionable"]] = Field(
         "detailed", description=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["output_format"]
     )
-
-    # Keep thinking_mode from original analyze tool; temperature is inherited from WorkflowRequest
-
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required relevant_files."""
-        if self.step_number == 1:
-            if not self.relevant_files:
-                raise ValueError("Step 1 requires 'relevant_files' field to specify files or directories to analyze")
-        return self
 
 
 class AnalyzeTool(WorkflowTool):
@@ -142,7 +101,6 @@ class AnalyzeTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.analysis_config = {}
 
     def get_name(self) -> str:

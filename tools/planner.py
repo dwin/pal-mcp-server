@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_BALANCED
 from systemprompts import PLANNER_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -38,11 +38,11 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions matching original planner tool
 PLANNER_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("planning"),
     "step": (
         "Planning content for this step. Step 1: describe the task, problem and scope. Later steps: capture updates, "
         "revisions, branches, or open questions that shape the plan."
     ),
-    "step_number": "Current planning step number (starts at 1).",
     "total_steps": "Estimated number of planning steps; adjust as the plan evolves.",
     "next_step_required": "Set true when another planning step will follow after this one.",
     "is_step_revision": "Set true when you are replacing a previously recorded step.",
@@ -54,14 +54,11 @@ PLANNER_FIELD_DESCRIPTIONS = {
 }
 
 
-class PlannerRequest(WorkflowRequest):
+class PlannerRequest(StandardWorkflowRequest):
     """Request model for planner workflow tool matching original planner exactly"""
 
-    # Required fields for each planning step
+    # Override step with tool-specific description
     step: str = Field(..., description=PLANNER_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=PLANNER_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=PLANNER_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=PLANNER_FIELD_DESCRIPTIONS["next_step_required"])
 
     # Optional revision/branching fields (planning-specific)
     is_step_revision: bool | None = Field(False, description=PLANNER_FIELD_DESCRIPTIONS["is_step_revision"])
@@ -85,8 +82,6 @@ class PlannerRequest(WorkflowRequest):
     hypothesis: str | None = Field(default=None, exclude=True, description="Planning doesn't use hypothesis")
 
     # Exclude other non-planning fields
-    temperature: float | None = Field(default=None, exclude=True)
-    thinking_mode: str | None = Field(default=None, exclude=True)
     use_assistant_model: bool | None = Field(default=False, exclude=True, description="Planning is self-contained")
     images: list | None = Field(default=None, exclude=True, description="Planning doesn't use images")
 

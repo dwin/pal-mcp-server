@@ -23,56 +23,36 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_CREATIVE
 from systemprompts import THINKDEEP_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
 logger = logging.getLogger(__name__)
 
+# Tool-specific field descriptions for thinkdeep workflow
+THINKDEEP_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("thinking"),
+    "step": "Current work step content and findings",
+    "findings": (
+        "Discoveries: insights, connections, implications, evidence. "
+        "Document contradictions to earlier assumptions. Update past findings."
+    ),
+    "relevant_files": "Files relevant to problem/goal (absolute paths). Include root cause, solution, key insights.",
+    "relevant_context": "Key concepts/methods: 'concept_name' or 'ClassName.methodName'. Focus on core insights, decision points.",
+    "issues_found": "Issues with dict: 'severity' (critical/high/medium/low), 'description'.",
+    "confidence": "exploring/low/medium/high/very_high/almost_certain/certain. CRITICAL: 'certain' PREVENTS external validation.",
+    "problem_context": "Additional context about problem/goal. Be expressive.",
+    "focus_areas": "Focus aspects (architecture, performance, security, etc.)",
+}
 
-class ThinkDeepWorkflowRequest(WorkflowRequest):
+
+class ThinkDeepWorkflowRequest(StandardWorkflowRequest):
     """Request model for thinkdeep workflow tool with comprehensive investigation capabilities"""
 
-    # Core workflow parameters
-    step: str = Field(description="Current work step content and findings")
-    step_number: int = Field(description="Current step number (starts at 1)", ge=1)
-    total_steps: int = Field(description="Estimated total steps needed", ge=1)
-    next_step_required: bool = Field(description="Whether another step is needed")
-    findings: str = Field(
-        description="Discoveries: insights, connections, implications, evidence. "
-        "Document contradictions to earlier assumptions. Update past findings."
-    )
+    # Override step with tool-specific description
+    step: str = Field(description=THINKDEEP_FIELD_DESCRIPTIONS["step"])
 
-    # Investigation tracking
-    files_checked: list[str] = Field(
-        default_factory=list,
-        description="All files examined (absolute paths). Include ruled-out files.",
-    )
-    relevant_files: list[str] = Field(
-        default_factory=list,
-        description="Files relevant to problem/goal (absolute paths). Include root cause, solution, key insights.",
-    )
-    relevant_context: list[str] = Field(
-        default_factory=list,
-        description="Key concepts/methods: 'concept_name' or 'ClassName.methodName'. Focus on core insights, decision points.",
-    )
-    hypothesis: Optional[str] = Field(
-        default=None,
-        description="Current theory based on evidence. Revise in later steps.",
-    )
-
-    # Analysis metadata
-    issues_found: list[dict] = Field(
-        default_factory=list,
-        description="Issues with dict: 'severity' (critical/high/medium/low), 'description'.",
-    )
-    confidence: str = Field(
-        default="low",
-        description="exploring/low/medium/high/very_high/almost_certain/certain. CRITICAL: 'certain' PREVENTS external validation.",
-    )
-
-    # Expert analysis configuration - keep these fields available for configuring the final assistant model
-    # in expert analysis (commented out exclude=True)
+    # ThinkDeep keeps temperature and thinking_mode visible (override parent's exclude=True)
     temperature: Optional[float] = Field(
         default=None,
         description="Creative thinking temp (0-1, default 0.7)",
@@ -83,14 +63,15 @@ class ThinkDeepWorkflowRequest(WorkflowRequest):
         default=None,
         description="Depth: minimal/low/medium/high/max. Default 'high'.",
     )
-    # Context files and investigation scope
+
+    # ThinkDeep-specific fields
     problem_context: Optional[str] = Field(
         default=None,
-        description="Additional context about problem/goal. Be expressive.",
+        description=THINKDEEP_FIELD_DESCRIPTIONS["problem_context"],
     )
     focus_areas: Optional[list[str]] = Field(
         default=None,
-        description="Focus aspects (architecture, performance, security, etc.)",
+        description=THINKDEEP_FIELD_DESCRIPTIONS["focus_areas"],
     )
 
 

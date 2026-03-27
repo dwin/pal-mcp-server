@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import SECAUDIT_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -35,19 +35,17 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for security audit workflow
 SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("audit"),
     "step": (
         "Step 1: outline the audit strategy (OWASP Top 10, auth, validation, etc.). Later steps: report findings. MANDATORY: use `relevant_files` for code references and avoid large snippets."
     ),
-    "step_number": "Current security-audit step number (starts at 1).",
     "total_steps": "Expected number of audit steps; adjust as new risks surface.",
     "next_step_required": "True while additional threat analysis remains; set False once you are ready to hand off for validation.",
     "findings": "Summarize vulnerabilities, auth issues, validation gaps, compliance notes, and positives; update prior findings as needed.",
-    "files_checked": "Absolute paths for every file inspected, including rejected candidates.",
     "relevant_files": "Absolute paths for security-relevant files (auth modules, configs, sensitive code).",
     "relevant_context": "Security-critical classes/methods (e.g. 'AuthService.login', 'encryption_helper').",
     "issues_found": "Security issues with severity (critical/high/medium/low) and descriptions (vulns, auth flaws, injection, crypto, config).",
     "confidence": "exploring/low/medium/high/very_high/almost_certain/certain. 'certain' blocks external validation—use only when fully complete.",
-    "images": "Optional absolute paths to diagrams or threat models that inform the audit.",
     "security_scope": "Security context (web, mobile, API, cloud, etc.) including stack, user types, data sensitivity, and threat landscape.",
     "threat_level": "Assess the threat level: low (internal/low-risk), medium (customer-facing/business data), high (regulated or sensitive), critical (financial/healthcare/PII).",
     "compliance_requirements": "Applicable compliance frameworks or standards (SOC2, PCI DSS, HIPAA, GDPR, ISO 27001, NIST, etc.).",
@@ -56,33 +54,14 @@ SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS = {
 }
 
 
-class SecauditRequest(WorkflowRequest):
+class SecauditRequest(StandardWorkflowRequest):
     """Request model for security audit workflow investigation steps"""
 
-    # Required fields for each investigation step
+    # Override step with tool-specific description
     step: str = Field(..., description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"])
 
-    # Investigation tracking fields
-    findings: str = Field(..., description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["findings"])
-    files_checked: list[str] = Field(
-        default_factory=list, description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"]
-    )
-    relevant_files: list[str] = Field(
-        default_factory=list, description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"]
-    )
-    relevant_context: list[str] = Field(
-        default_factory=list, description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["relevant_context"]
-    )
-    issues_found: list[dict] = Field(
-        default_factory=list, description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"]
-    )
+    # Confidence with custom description (visible, not excluded)
     confidence: Optional[str] = Field("low", description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["confidence"])
-
-    # Optional images for visual context
-    images: Optional[list[str]] = Field(default=None, description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["images"])
 
     # Security audit-specific fields
     security_scope: Optional[str] = Field(None, description=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["security_scope"])
@@ -128,7 +107,6 @@ class SecauditTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.security_config = {}
 
     def get_name(self) -> str:

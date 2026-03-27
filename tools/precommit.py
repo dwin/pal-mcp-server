@@ -18,14 +18,14 @@ Key features:
 import logging
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import PRECOMMIT_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for precommit workflow
 PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("validation"),
     "step": (
         "Step 1: outline how you'll validate the git changes. Later steps: report findings. Review diffs and impacts, use `relevant_files`, and avoid pasting large snippets."
     ),
-    "step_number": "Current pre-commit step number (starts at 1).",
     "total_steps": (
         "Planned number of validation steps. External validation: use at most three (analysis → follow-ups → summary). Internal validation: a single step. Honour these limits when resuming via continuation_id."
     ),
@@ -46,12 +46,10 @@ PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS = {
         "When continuation_id is provided: Follow the same validation rules based on precommit_type."
     ),
     "findings": "Record git diff insights, risks, missing tests, security concerns, and positives; update previous notes as you go.",
-    "files_checked": "Absolute paths for every file examined, including ruled-out candidates.",
     "relevant_files": "Absolute paths of files involved in the change or validation (code, configs, tests, docs). Must be absolute full non-abbreviated paths.",
     "relevant_context": "Key functions/methods touched by the change (e.g. 'Class.method', 'function_name').",
     "issues_found": "List issues with severity (critical/high/medium/low) plus descriptions (bugs, security, performance, coverage).",
     "precommit_type": "'external' (default, triggers expert model) or 'internal' (local-only validation).",
-    "images": "Optional absolute paths to screenshots or diagrams that aid validation.",
     "path": "Absolute path to the repository root. Required in step 1.",
     "compare_to": "Optional git ref (branch/tag/commit) to diff against; falls back to staged/unstaged changes.",
     "include_staged": "Whether to inspect staged changes (ignored when `compare_to` is set).",
@@ -61,38 +59,20 @@ PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS = {
 }
 
 
-class PrecommitRequest(WorkflowRequest):
+class PrecommitRequest(StandardWorkflowRequest):
     """Request model for precommit workflow investigation steps"""
 
-    # Required fields for each investigation step
-    step: str = Field(..., description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"])
+    _step_one_required_field = "path"
+    _step_one_error_message = "Step 1 requires 'path' field to specify git repository location"
 
-    # Investigation tracking fields
-    findings: str = Field(..., description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["findings"])
-    files_checked: list[str] = Field(
-        default_factory=list, description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"]
-    )
-    relevant_files: list[str] = Field(
-        default_factory=list, description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"]
-    )
-    relevant_context: list[str] = Field(
-        default_factory=list, description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["relevant_context"]
-    )
-    issues_found: list[dict] = Field(
-        default_factory=list, description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"]
-    )
+    # Override step with tool-specific description
+    step: str = Field(..., description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["step"])
+
     precommit_type: Optional[Literal["external", "internal"]] = Field(
         "external", description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["precommit_type"]
     )
 
-    # Optional images for visual validation
-    images: Optional[list[str]] = Field(default=None, description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["images"])
-
     # Precommit-specific fields (only used in step 1 to initialize)
-    # Required for step 1, validated in model_validator
     path: Optional[str] = Field(None, description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["path"])
     compare_to: Optional[str] = Field(None, description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["compare_to"])
     include_staged: Optional[bool] = Field(True, description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["include_staged"])
@@ -103,17 +83,6 @@ class PrecommitRequest(WorkflowRequest):
     severity_filter: Optional[Literal["critical", "high", "medium", "low", "all"]] = Field(
         "all", description=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["severity_filter"]
     )
-
-    # Override inherited fields to exclude them from schema (except model which needs to be available)
-    temperature: Optional[float] = Field(default=None, exclude=True)
-    thinking_mode: Optional[str] = Field(default=None, exclude=True)
-
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required path field."""
-        if self.step_number == 1 and not self.path:
-            raise ValueError("Step 1 requires 'path' field to specify git repository location")
-        return self
 
 
 class PrecommitTool(WorkflowTool):
@@ -128,7 +97,6 @@ class PrecommitTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.git_config = {}
 
     def get_name(self) -> str:

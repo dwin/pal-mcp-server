@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import TRACER_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -37,14 +37,11 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for tracer workflow
 TRACER_WORKFLOW_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("tracing"),
     "step": (
         "The plan for the current tracing step. Step 1: State the tracing strategy. Later steps: Report findings and adapt the plan. "
         "CRITICAL: For 'precision' mode, focus on execution flow and call chains. For 'dependencies' mode, focus on structural relationships. "
         "If trace_mode is 'ask' in step 1, you MUST prompt the user to choose a mode."
-    ),
-    "step_number": (
-        "The index of the current step in the tracing sequence, beginning at 1. Each step should build upon or "
-        "revise the previous one."
     ),
     "total_steps": (
         "Your current estimate for how many steps will be needed to complete the tracing analysis. "
@@ -57,9 +54,6 @@ TRACER_WORKFLOW_FIELD_DESCRIPTIONS = {
     "findings": (
         "Summary of discoveries from this step, including execution paths, dependency relationships, call chains, and structural patterns. "
         "IMPORTANT: Document both direct (immediate calls) and indirect (transitive, side effects) relationships."
-    ),
-    "files_checked": (
-        "List all files examined (absolute paths). Include even ruled-out files to track exploration path."
     ),
     "relevant_files": (
         "Subset of files_checked directly relevant to the tracing target (absolute paths). Include implementation files, "
@@ -81,26 +75,13 @@ TRACER_WORKFLOW_FIELD_DESCRIPTIONS = {
 }
 
 
-class TracerRequest(WorkflowRequest):
+class TracerRequest(StandardWorkflowRequest):
     """Request model for tracer workflow investigation steps"""
 
-    # Required fields for each investigation step
+    # Override step with tool-specific description
     step: str = Field(..., description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"])
 
-    # Investigation tracking fields
-    findings: str = Field(..., description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["findings"])
-    files_checked: list[str] = Field(
-        default_factory=list, description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"]
-    )
-    relevant_files: list[str] = Field(
-        default_factory=list, description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"]
-    )
-    relevant_context: list[str] = Field(
-        default_factory=list, description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["relevant_context"]
-    )
+    # Tracer uses "exploring" as default confidence
     confidence: Optional[str] = Field("exploring", description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["confidence"])
 
     # Tracer-specific fields (used in step 1 to initialize)
@@ -110,14 +91,12 @@ class TracerRequest(WorkflowRequest):
     target_description: Optional[str] = Field(
         None, description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["target_description"]
     )
+    # Override images with custom description
     images: Optional[list[str]] = Field(default=None, description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["images"])
 
     # Exclude fields not relevant to tracing workflow
     issues_found: list[dict] = Field(default_factory=list, exclude=True, description="Tracing doesn't track issues")
     hypothesis: Optional[str] = Field(default=None, exclude=True, description="Tracing doesn't use hypothesis")
-    # Exclude other non-tracing fields
-    temperature: Optional[float] = Field(default=None, exclude=True)
-    thinking_mode: Optional[str] = Field(default=None, exclude=True)
     use_assistant_model: Optional[bool] = Field(default=False, exclude=True, description="Tracing is self-contained")
 
     @field_validator("step_number")
@@ -147,7 +126,6 @@ class TracerTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.trace_config = {}
 
     def get_name(self) -> str:

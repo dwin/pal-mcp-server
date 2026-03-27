@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import DOCGEN_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -36,11 +36,11 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for documentation generation
 DOCGEN_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("documentation"),
     "step": (
         "Step 1 (Discovery): list every file that needs documentation and record the total. Do not write docs yet. "
         "Steps 2+: document exactly one file per step. Never change code logic; log bugs separately. Keep the counters accurate."
     ),
-    "step_number": "Current documentation step (starts at 1).",
     "total_steps": "1 discovery step + one step per file documented (tracks via `total_files_to_document`).",
     "next_step_required": "True while more files still need documentation; False once everything is complete.",
     "findings": "Summarize documentation gaps, complexity, call flows, and well-documented areas. Stop and report immediately if you uncover a bug.",
@@ -55,16 +55,13 @@ DOCGEN_FIELD_DESCRIPTIONS = {
 }
 
 
-class DocgenRequest(WorkflowRequest):
+class DocgenRequest(StandardWorkflowRequest):
     """Request model for documentation generation steps"""
 
-    # Required workflow fields
+    # Override step with tool-specific description
     step: str = Field(..., description=DOCGEN_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=DOCGEN_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=DOCGEN_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=DOCGEN_FIELD_DESCRIPTIONS["next_step_required"])
 
-    # Documentation analysis tracking fields
+    # Override findings/relevant_files/relevant_context with tool-specific descriptions
     findings: str = Field(..., description=DOCGEN_FIELD_DESCRIPTIONS["findings"])
     relevant_files: list[str] = Field(default_factory=list, description=DOCGEN_FIELD_DESCRIPTIONS["relevant_files"])
     relevant_context: list[str] = Field(default_factory=list, description=DOCGEN_FIELD_DESCRIPTIONS["relevant_context"])
@@ -97,7 +94,6 @@ class DocgenTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
 
     def get_name(self) -> str:
         return "docgen"

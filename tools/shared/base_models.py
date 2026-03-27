@@ -7,13 +7,14 @@ extracted to avoid circular imports and promote code reuse.
 Key Models:
 - ToolRequest: Base request model for all tools
 - WorkflowRequest: Extended request model for workflow-based tools
+- StandardWorkflowRequest: Common base for most workflow tool requests
 - ConsolidatedFindings: Model for tracking workflow progress
 """
 
 import logging
-from typing import Optional
+from typing import ClassVar, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -157,5 +158,82 @@ class ConsolidatedFindings(BaseModel):
     confidence: str = Field("low", description="Latest confidence level from steps")
 
 
-# Tool-specific field descriptions are now declared in each tool file
-# This keeps concerns separated and makes each tool self-contained
+def build_workflow_descriptions(activity: str) -> dict[str, str]:
+    """Build standard workflow field descriptions parameterized by activity name.
+
+    Generates a dictionary of field descriptions for the common workflow fields,
+    customised with the tool's activity name. Tools merge this with their own
+    tool-specific entries and may override any shared key.
+
+    Args:
+        activity: The tool's primary activity (e.g., "review", "investigation",
+                  "analysis", "tracing", "audit").
+
+    Returns:
+        Dictionary mapping field names to description strings.
+    """
+    return {
+        "step_number": f"Current {activity} step (starts at 1). Each step should build on the last.",
+        "total_steps": f"Estimated total {activity} steps needed. Adjust as new findings emerge.",
+        "next_step_required": (
+            f"True if another {activity} step follows; False when {activity} is complete "
+            f"and ready for expert validation."
+        ),
+        "findings": f"Capture findings from this {activity} step; update prior findings as needed.",
+        "files_checked": "Absolute paths of every file examined, including those ruled out.",
+        "relevant_files": (
+            "Files directly relevant to findings (absolute paths). "
+            "Must be absolute full non-abbreviated paths."
+        ),
+        "relevant_context": (
+            "Key functions/methods central to findings "
+            "(e.g. 'Class.method' or 'function_name')."
+        ),
+        "issues_found": "Issues with severity (critical/high/medium/low) and descriptions.",
+        "confidence": (
+            "Confidence: exploring/low/medium/high/very_high/almost_certain/certain. "
+            "CRITICAL: 'certain' PREVENTS external validation—use only when 100% complete."
+        ),
+        "images": "Optional absolute paths to diagrams or screenshots for additional context.",
+    }
+
+
+class StandardWorkflowRequest(WorkflowRequest):
+    """Common base for most workflow tool request models.
+
+    Provides two shared patterns that nearly every workflow tool repeats:
+
+    1. **Excluded fields** – ``temperature`` and ``thinking_mode`` are excluded
+       from the JSON schema by default (most workflow tools don't expose them).
+    2. **Step-1 validation** – subclasses can set ``_step_one_required_field``
+       and ``_step_one_error_message`` class variables to automatically validate
+       that a specific field is present on the first step, eliminating
+       per-tool ``validate_step_one_requirements`` boilerplate.
+
+    Example::
+
+        class MyToolRequest(StandardWorkflowRequest):
+            _step_one_required_field = "relevant_files"
+            _step_one_error_message = "Step 1 requires files to analyse"
+            # ... tool-specific fields only ...
+    """
+
+    _step_one_required_field: ClassVar[Optional[str]] = None
+    _step_one_error_message: ClassVar[Optional[str]] = None
+
+    # Most workflow tools exclude these from the schema
+    temperature: Optional[float] = Field(default=None, exclude=True)
+    thinking_mode: Optional[str] = Field(default=None, exclude=True)
+
+    @model_validator(mode="after")
+    def validate_step_one_requirements(self):
+        """Validate that the required field is present on step 1."""
+        field = self._step_one_required_field
+        if field and self.step_number == 1:
+            value = getattr(self, field, None)
+            if not value:
+                raise ValueError(
+                    self._step_one_error_message
+                    or f"Step 1 requires '{field}' field"
+                )
+        return self

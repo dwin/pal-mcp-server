@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import DEBUG_ISSUE_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -33,12 +33,12 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions matching original debug tool
 DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("investigation"),
     "step": (
         "Investigation step. Step 1: State issue+direction. "
         "Symptoms misleading; 'no bug' valid. Trace dependencies, verify hypotheses. "
         "Use relevant_files for code; this for text only."
     ),
-    "step_number": "Current step index (starts at 1). Build upon previous steps.",
     "total_steps": (
         "Estimated total steps needed to complete the investigation. Adjust as new findings emerge. "
         "IMPORTANT: When continuation_id is provided (continuing a previous conversation), set this to 1 as we're not starting a new multi-step investigation."
@@ -51,7 +51,6 @@ DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS = {
         "Discoveries: clues, code/log evidence, disproven theories. Be specific. "
         "If no bug found, document clearly as valid."
     ),
-    "files_checked": "All examined files (absolute paths), including ruled-out ones.",
     "relevant_files": "Files directly relevant to issue (absolute paths). Cause, trigger, or manifestation locations.",
     "relevant_context": "Methods/functions central to issue: 'Class.method' or 'function'. Focus on inputs/branching/state.",
     "hypothesis": (
@@ -65,39 +64,20 @@ DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS = {
         "WARNING: Do NOT use 'certain' unless the issue can be fully resolved with a fix, use 'very_high' or 'almost_certain' instead when not 100% sure. "
         "Using 'certain' means you have ABSOLUTE confidence locally and PREVENTS external model validation."
     ),
-    "images": "Optional screenshots/visuals clarifying issue (absolute paths).",
 }
 
 
-class DebugInvestigationRequest(WorkflowRequest):
+class DebugInvestigationRequest(StandardWorkflowRequest):
     """Request model for debug investigation steps matching original debug tool exactly"""
 
-    # Required fields for each investigation step
+    # Override step with tool-specific description
     step: str = Field(..., description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["next_step_required"])
 
-    # Investigation tracking fields
-    findings: str = Field(..., description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["findings"])
-    files_checked: list[str] = Field(
-        default_factory=list, description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["files_checked"]
-    )
-    relevant_files: list[str] = Field(
-        default_factory=list, description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["relevant_files"]
-    )
-    relevant_context: list[str] = Field(
-        default_factory=list, description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["relevant_context"]
-    )
+    # Debug keeps hypothesis visible (tool-specific description)
     hypothesis: Optional[str] = Field(None, description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["hypothesis"])
+
+    # Debug keeps confidence visible with custom description (not excluded)
     confidence: Optional[str] = Field("low", description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["confidence"])
-
-    # Optional images for visual debugging
-    images: Optional[list[str]] = Field(default=None, description=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["images"])
-
-    # Override inherited fields to exclude them from schema (except model which needs to be available)
-    temperature: Optional[float] = Field(default=None, exclude=True)
-    thinking_mode: Optional[str] = Field(default=None, exclude=True)
 
 
 class DebugIssueTool(WorkflowTool):

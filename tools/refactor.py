@@ -19,14 +19,14 @@ Key features:
 import logging
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import REFACTOR_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -34,29 +34,15 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for refactor tool
 REFACTOR_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("refactoring investigation"),
     "step": (
         "The refactoring plan. Step 1: State strategy. Later steps: Report findings. "
         "CRITICAL: Examine code for smells, and opportunities for decomposition, modernization, and organization. "
         "Use 'relevant_files' for code. FORBIDDEN: Large code snippets."
     ),
-    "step_number": (
-        "The index of the current step in the refactoring investigation sequence, beginning at 1. Each step should "
-        "build upon or revise the previous one."
-    ),
-    "total_steps": (
-        "Your current estimate for how many steps will be needed to complete the refactoring investigation. "
-        "Adjust as new opportunities emerge."
-    ),
-    "next_step_required": (
-        "Set to true if you plan to continue the investigation with another step. False means you believe the "
-        "refactoring analysis is complete and ready for expert validation."
-    ),
     "findings": (
         "Summary of discoveries from this step, including code smells and opportunities for decomposition, modernization, or organization. "
         "Document both strengths and weaknesses. In later steps, confirm or update past findings."
-    ),
-    "files_checked": (
-        "List all files examined (absolute paths). Include even ruled-out files to track exploration path."
     ),
     "relevant_files": (
         "Subset of files_checked with code requiring refactoring (absolute paths). Include files with "
@@ -91,29 +77,21 @@ REFACTOR_FIELD_DESCRIPTIONS = {
 }
 
 
-class RefactorRequest(WorkflowRequest):
+class RefactorRequest(StandardWorkflowRequest):
     """Request model for refactor workflow investigation steps"""
 
-    # Required fields for each investigation step
-    step: str = Field(..., description=REFACTOR_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=REFACTOR_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=REFACTOR_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=REFACTOR_FIELD_DESCRIPTIONS["next_step_required"])
-
-    # Investigation tracking fields
-    findings: str = Field(..., description=REFACTOR_FIELD_DESCRIPTIONS["findings"])
-    files_checked: list[str] = Field(default_factory=list, description=REFACTOR_FIELD_DESCRIPTIONS["files_checked"])
-    relevant_files: list[str] = Field(default_factory=list, description=REFACTOR_FIELD_DESCRIPTIONS["relevant_files"])
-    relevant_context: list[str] = Field(
-        default_factory=list, description=REFACTOR_FIELD_DESCRIPTIONS["relevant_context"]
+    _step_one_required_field = "relevant_files"
+    _step_one_error_message = (
+        "Step 1 requires 'relevant_files' field to specify code files or directories to analyze for refactoring"
     )
-    issues_found: list[dict] = Field(default_factory=list, description=REFACTOR_FIELD_DESCRIPTIONS["issues_found"])
+
+    # Override step with tool-specific description
+    step: str = Field(..., description=REFACTOR_FIELD_DESCRIPTIONS["step"])
+
+    # Refactor uses a custom confidence enum
     confidence: Optional[Literal["exploring", "incomplete", "partial", "complete"]] = Field(
         "incomplete", description=REFACTOR_FIELD_DESCRIPTIONS["confidence"]
     )
-
-    # Optional images for visual context
-    images: Optional[list[str]] = Field(default=None, description=REFACTOR_FIELD_DESCRIPTIONS["images"])
 
     # Refactor-specific fields (only used in step 1 to initialize)
     refactor_type: Optional[Literal["codesmells", "decompose", "modernize", "organization"]] = Field(
@@ -123,19 +101,6 @@ class RefactorRequest(WorkflowRequest):
     style_guide_examples: Optional[list[str]] = Field(
         None, description=REFACTOR_FIELD_DESCRIPTIONS["style_guide_examples"]
     )
-
-    # Override inherited fields to exclude them from schema (except model which needs to be available)
-    temperature: Optional[float] = Field(default=None, exclude=True)
-    thinking_mode: Optional[str] = Field(default=None, exclude=True)
-
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required relevant_files field."""
-        if self.step_number == 1 and not self.relevant_files:
-            raise ValueError(
-                "Step 1 requires 'relevant_files' field to specify code files or directories to analyze for refactoring"
-            )
-        return self
 
 
 class RefactorTool(WorkflowTool):
@@ -151,7 +116,6 @@ class RefactorTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.refactor_config = {}
 
     def get_name(self) -> str:

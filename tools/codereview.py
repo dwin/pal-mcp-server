@@ -19,14 +19,14 @@ Key features:
 import logging
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import CODEREVIEW_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import StandardWorkflowRequest, build_workflow_descriptions
 
 from .workflow.base import WorkflowTool
 
@@ -34,11 +34,11 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for code review workflow
 CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS = {
+    **build_workflow_descriptions("review"),
     "step": (
         "Review narrative. Step 1: outline the review strategy. Later steps: report findings. MUST cover quality, security, "
         "performance, and architecture. Reference code via `relevant_files`; avoid dumping large snippets."
     ),
-    "step_number": "Current review step (starts at 1) – each step should build on the last.",
     "total_steps": (
         "Number of review steps planned. External validation: two steps (analysis + summary). Internal validation: one step. "
         "Use the same limits when continuing an existing review via continuation_id."
@@ -48,12 +48,8 @@ CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS = {
         "Apply the same rule on continuation flows."
     ),
     "findings": "Capture findings (positive and negative) across quality, security, performance, and architecture; update each step.",
-    "files_checked": "Absolute paths of every file reviewed, including those ruled out.",
     "relevant_files": "Step 1: list all files/dirs under review. Must be absolute full non-abbreviated paths. Final step: narrow to files tied to key findings.",
-    "relevant_context": "Functions or methods central to findings (e.g. 'Class.method' or 'function_name').",
-    "issues_found": "Issues with severity (critical/high/medium/low) and descriptions.",
     "review_validation_type": "Set 'external' (default) for expert follow-up or 'internal' for local-only review.",
-    "images": "Optional diagram or screenshot paths that clarify review context.",
     "review_type": "Review focus: full, security, performance, or quick.",
     "focus_on": "Optional note on areas to emphasise (e.g. 'threading', 'auth flow').",
     "standards": "Coding standards or style guides to enforce.",
@@ -61,37 +57,20 @@ CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS = {
 }
 
 
-class CodeReviewRequest(WorkflowRequest):
+class CodeReviewRequest(StandardWorkflowRequest):
     """Request model for code review workflow investigation steps"""
 
-    # Required fields for each investigation step
-    step: str = Field(..., description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"])
+    _step_one_required_field = "relevant_files"
+    _step_one_error_message = "Step 1 requires 'relevant_files' field to specify code files or directories to review"
 
-    # Investigation tracking fields
-    findings: str = Field(..., description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["findings"])
-    files_checked: list[str] = Field(
-        default_factory=list, description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"]
-    )
-    relevant_files: list[str] = Field(
-        default_factory=list, description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"]
-    )
-    relevant_context: list[str] = Field(
-        default_factory=list, description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["relevant_context"]
-    )
-    issues_found: list[dict] = Field(
-        default_factory=list, description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"]
-    )
+    # Override step with tool-specific description
+    step: str = Field(..., description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["step"])
+
     # Deprecated confidence field kept for backward compatibility only
     confidence: Optional[str] = Field("low", exclude=True)
     review_validation_type: Optional[Literal["external", "internal"]] = Field(
-        "external", description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS.get("review_validation_type", "")
+        "external", description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["review_validation_type"]
     )
-
-    # Optional images for visual context
-    images: Optional[list[str]] = Field(default=None, description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["images"])
 
     # Code review-specific fields (only used in step 1 to initialize)
     review_type: Optional[Literal["full", "security", "performance", "quick"]] = Field(
@@ -102,17 +81,6 @@ class CodeReviewRequest(WorkflowRequest):
     severity_filter: Optional[Literal["critical", "high", "medium", "low", "all"]] = Field(
         "all", description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["severity_filter"]
     )
-
-    # Override inherited fields to exclude them from schema (except model which needs to be available)
-    temperature: Optional[float] = Field(default=None, exclude=True)
-    thinking_mode: Optional[str] = Field(default=None, exclude=True)
-
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required relevant_files field."""
-        if self.step_number == 1 and not self.relevant_files:
-            raise ValueError("Step 1 requires 'relevant_files' field to specify code files or directories to review")
-        return self
 
 
 class CodeReviewTool(WorkflowTool):
@@ -127,7 +95,6 @@ class CodeReviewTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.review_config = {}
 
     def get_name(self) -> str:
