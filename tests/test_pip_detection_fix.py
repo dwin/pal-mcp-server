@@ -28,7 +28,13 @@ class TestPipDetectionFix:
     def test_critical_functions_exist(self):
         """Test that all critical functions are defined in the script."""
         content = Path("./run-server.sh").read_text()
-        critical_functions = ["ensure_uv", "setup_environment", "install_dependencies", "get_venv_python_path", "setup_env_file"]
+        critical_functions = [
+            "ensure_uv",
+            "setup_environment",
+            "install_dependencies",
+            "get_venv_python_path",
+            "setup_env_file",
+        ]
 
         for func in critical_functions:
             assert f"{func}()" in content, f"Critical function {func}() not found in script"

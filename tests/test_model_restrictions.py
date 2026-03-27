@@ -48,7 +48,9 @@ class TestModelRestrictionService:
 
     def test_load_multiple_models_restriction(self):
         """Test loading multiple allowed models."""
-        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini,o4-mini", "GOOGLE_ALLOWED_MODELS": "flash,gemini-pro"}):
+        with patch.dict(
+            os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini,o4-mini", "GOOGLE_ALLOWED_MODELS": "flash,gemini-pro"}
+        ):
             # Instantiate providers so alias resolution for allow-lists is available
             openai_provider = OpenAIModelProvider(api_key="test-key")
             gemini_provider = GeminiModelProvider(api_key="test-key")
@@ -126,7 +128,9 @@ class TestModelRestrictionService:
 
     def test_shorthand_names_in_restrictions(self):
         """Test that shorthand names work in restrictions."""
-        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o4mini,mini", "GOOGLE_ALLOWED_MODELS": "flash,gemini-pro"}):
+        with patch.dict(
+            os.environ, {"OPENAI_ALLOWED_MODELS": "o4mini,mini", "GOOGLE_ALLOWED_MODELS": "flash,gemini-pro"}
+        ):
             # Instantiate providers so the registry can resolve aliases
             OpenAIModelProvider(api_key="test-key")
             GeminiModelProvider(api_key="test-key")
@@ -567,7 +571,9 @@ class TestRegistryIntegration:
             ProviderType.GOOGLE: type(mock_gemini),
         }
 
-        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini", "GOOGLE_ALLOWED_MODELS": "gemini-3-flash-preview"}):
+        with patch.dict(
+            os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini", "GOOGLE_ALLOWED_MODELS": "gemini-3-flash-preview"}
+        ):
             # Clear cached restriction service
             import utils.model_restrictions
 

@@ -117,7 +117,14 @@ class TestModelSelection:
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
             # Gemini should return one of its models for extended reasoning
             # The default behavior may return flash when pro is not explicitly preferred
-            assert model in ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-3-flash-preview", "gemini-flash", "gemini-pro", "gemini"]
+            assert model in [
+                "gemini-3.1-pro-preview",
+                "gemini-3-pro-preview",
+                "gemini-3-flash-preview",
+                "gemini-flash",
+                "gemini-pro",
+                "gemini",
+            ]
 
     def test_fast_response_with_openai(self):
         """Test FAST_RESPONSE with OpenAI provider."""
@@ -151,7 +158,14 @@ class TestModelSelection:
 
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
             # Gemini should return one of its models for fast response
-            assert model in ["gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-flash", "gemini-pro", "gemini"]
+            assert model in [
+                "gemini-3-flash-preview",
+                "gemini-3.1-pro-preview",
+                "gemini-3-pro-preview",
+                "gemini-flash",
+                "gemini-pro",
+                "gemini",
+            ]
 
     def test_balanced_category_fallback(self):
         """Test BALANCED category uses existing logic."""

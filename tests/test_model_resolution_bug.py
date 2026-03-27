@@ -108,7 +108,9 @@ class TestModelResolutionBug:
 
         # Verify the registry doesn't have this malformed name
         config = provider._registry.resolve("gemini-3.1-pro-preview")
-        assert config is None, "Registry should not contain 'gemini-3.1-pro-preview' - only 'google/gemini-3.1-pro-preview'"
+        assert (
+            config is None
+        ), "Registry should not contain 'gemini-3.1-pro-preview' - only 'google/gemini-3.1-pro-preview'"
 
 
 if __name__ == "__main__":
