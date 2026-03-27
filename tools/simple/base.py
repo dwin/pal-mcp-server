@@ -615,17 +615,9 @@ class SimpleTool(BaseTool):
                 model_name = model_info.get("model_name")
                 if model_name:
                     metadata["model_used"] = model_name
-                provider = model_info.get("provider")
-                if provider:
-                    # Handle both provider objects and string values
-                    if isinstance(provider, str):
-                        metadata["provider_used"] = provider
-                    else:
-                        try:
-                            metadata["provider_used"] = provider.get_provider_type().value
-                        except AttributeError:
-                            # Fallback if provider doesn't have get_provider_type method
-                            metadata["provider_used"] = str(provider)
+                provider_name = self._extract_provider_name(model_info.get("provider"))
+                if provider_name:
+                    metadata["provider_used"] = provider_name
 
             return ToolOutput(
                 status="success",
@@ -684,6 +676,22 @@ class SimpleTool(BaseTool):
         except Exception:
             return None
 
+    @staticmethod
+    def _extract_provider_name(provider) -> Optional[str]:
+        """Extract a string provider name from a provider object or string.
+
+        Handles provider objects (with get_provider_type()), plain strings,
+        and None values.
+        """
+        if provider is None:
+            return None
+        if isinstance(provider, str):
+            return provider
+        try:
+            return provider.get_provider_type().value
+        except AttributeError:
+            return str(provider)
+
     def _create_continuation_offer_response(
         self, content: str, continuation_data: dict, request, model_info: Optional[dict] = None
     ):
@@ -711,17 +719,9 @@ class SimpleTool(BaseTool):
                 model_name = model_info.get("model_name")
                 if model_name:
                     metadata["model_used"] = model_name
-                provider = model_info.get("provider")
-                if provider:
-                    # Handle both provider objects and string values
-                    if isinstance(provider, str):
-                        metadata["provider_used"] = provider
-                    else:
-                        try:
-                            metadata["provider_used"] = provider.get_provider_type().value
-                        except AttributeError:
-                            # Fallback if provider doesn't have get_provider_type method
-                            metadata["provider_used"] = str(provider)
+                provider_name = self._extract_provider_name(model_info.get("provider"))
+                if provider_name:
+                    metadata["provider_used"] = provider_name
 
             return ToolOutput(
                 status="continuation_available",
@@ -749,15 +749,7 @@ class SimpleTool(BaseTool):
         model_metadata = None
 
         if model_info:
-            provider = model_info.get("provider")
-            if provider:
-                if isinstance(provider, str):
-                    model_provider = provider
-                else:
-                    try:
-                        model_provider = provider.get_provider_type().value
-                    except AttributeError:
-                        model_provider = str(provider)
+            model_provider = self._extract_provider_name(model_info.get("provider"))
             model_name = model_info.get("model_name")
             model_response = model_info.get("model_response")
             if model_response:
