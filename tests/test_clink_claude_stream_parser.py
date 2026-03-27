@@ -146,7 +146,9 @@ def test_claude_stream_parser_preserves_stderr():
 def test_claude_stream_parser_handles_error_result():
     """Test is_error flag extraction."""
     parser = ClaudeStreamJSONParser()
-    stdout = """{"type":"result","subtype":"error","is_error":true,"result":"API Error occurred","session_id":"abc-123"}"""
+    stdout = (
+        """{"type":"result","subtype":"error","is_error":true,"result":"API Error occurred","session_id":"abc-123"}"""
+    )
 
     parsed = parser.parse(stdout=stdout, stderr="")
 
