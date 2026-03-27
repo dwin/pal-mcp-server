@@ -9,9 +9,10 @@ and documentation.
 from tools.shared.base_tool import BaseTool
 from tools.shared.schema_builders import SchemaBuilder
 
+__all__ = ["SchemaBuilder", "SimpleTool"]
+
 
 class SimpleTool(BaseTool):
     """Backward-compatible alias for the former simple-tool base class."""
 
     pass
-

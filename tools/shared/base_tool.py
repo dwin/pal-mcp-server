@@ -1601,7 +1601,9 @@ When recommending searches, be specific about what information you need and why 
             capabilities = self._model_context.capabilities
 
             base_system_prompt = self.get_system_prompt()
-            capability_augmented_prompt = self._augment_system_prompt_with_capabilities(base_system_prompt, capabilities)
+            capability_augmented_prompt = self._augment_system_prompt_with_capabilities(
+                base_system_prompt, capabilities
+            )
             language_instruction = self.get_language_instruction()
             system_prompt = language_instruction + capability_augmented_prompt
 
@@ -1656,7 +1658,9 @@ When recommending searches, be specific about what information you need and why 
                         content_type="text",
                     )
                 elif finish_reason == "STOP":
-                    logger.info("Model completed with empty response for %s, retrying with clarification", self.get_name())
+                    logger.info(
+                        "Model completed with empty response for %s, retrying with clarification", self.get_name()
+                    )
                     retry_prompt = (
                         f"{prompt}\n\nIMPORTANT: Please provide a substantive response. If you cannot respond to the "
                         "above request, please explain why and suggest alternatives."
@@ -1716,7 +1720,9 @@ When recommending searches, be specific about what information you need and why 
                             content_type="text",
                         )
                 else:
-                    logger.warning("Response blocked or incomplete for %s. Finish reason: %s", self.get_name(), finish_reason)
+                    logger.warning(
+                        "Response blocked or incomplete for %s. Finish reason: %s", self.get_name(), finish_reason
+                    )
                     tool_output = ToolOutput(
                         status="error",
                         content=f"Response blocked or incomplete. Finish reason: {finish_reason}",
@@ -2149,7 +2155,9 @@ When recommending searches, be specific about what information you need and why 
         except Exception:
             return ToolOutput(status="success", content=content, content_type="text")
 
-    def _record_assistant_turn(self, continuation_id: str, response_text: str, request, model_info: Optional[dict]) -> None:
+    def _record_assistant_turn(
+        self, continuation_id: str, response_text: str, request, model_info: Optional[dict]
+    ) -> None:
         """Persist an assistant response in conversation memory."""
 
         if not continuation_id:
