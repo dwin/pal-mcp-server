@@ -14,6 +14,7 @@ import logging
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
+from typing_extensions import NotRequired, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -57,34 +58,40 @@ WORKFLOW_FIELD_DESCRIPTIONS = {
 }
 
 
-class ToolRequest(BaseModel):
+class ToolRequest(TypedDict, total=False):
     """
     Base request model for all PAL MCP tools.
 
-    This model defines common fields that all tools accept, including
-    model selection, temperature control, and conversation threading.
-    Tool-specific request models should inherit from this class.
+    Converted from Pydantic BaseModel to TypedDict in v10. The MCP JSON Schema
+    handles input validation at the transport boundary, so runtime Pydantic
+    validation is unnecessary for tools that don't use model_validator.
+
+    Tool-specific request models that need cross-field validation should use
+    Pydantic. Simple tools should use TypedDict.
     """
 
-    # Model configuration
-    model: Optional[str] = Field(None, description=COMMON_FIELD_DESCRIPTIONS["model"])
-    temperature: Optional[float] = Field(None, ge=0.0, le=1.0, description=COMMON_FIELD_DESCRIPTIONS["temperature"])
-    thinking_mode: Optional[str] = Field(None, description=COMMON_FIELD_DESCRIPTIONS["thinking_mode"])
-
-    # Conversation support
-    continuation_id: Optional[str] = Field(None, description=COMMON_FIELD_DESCRIPTIONS["continuation_id"])
-
-    # Visual context
-    images: Optional[list[str]] = Field(None, description=COMMON_FIELD_DESCRIPTIONS["images"])
+    model: NotRequired[Optional[str]]
+    temperature: NotRequired[Optional[float]]
+    thinking_mode: NotRequired[Optional[str]]
+    continuation_id: NotRequired[Optional[str]]
+    images: NotRequired[Optional[list[str]]]
 
 
-class BaseWorkflowRequest(ToolRequest):
+class BaseWorkflowRequest(BaseModel):
     """
     Minimal base request model for workflow tools.
 
     This provides only the essential fields that ALL workflow tools need,
     allowing for maximum flexibility in tool-specific implementations.
+    Remains Pydantic because workflow requests use field validators.
     """
+
+    # Common fields (replicated from ToolRequest TypedDict for Pydantic compatibility)
+    model: Optional[str] = Field(None, description=COMMON_FIELD_DESCRIPTIONS["model"])
+    temperature: Optional[float] = Field(None, ge=0.0, le=1.0, description=COMMON_FIELD_DESCRIPTIONS["temperature"])
+    thinking_mode: Optional[str] = Field(None, description=COMMON_FIELD_DESCRIPTIONS["thinking_mode"])
+    continuation_id: Optional[str] = Field(None, description=COMMON_FIELD_DESCRIPTIONS["continuation_id"])
+    images: Optional[list[str]] = Field(None, description=COMMON_FIELD_DESCRIPTIONS["images"])
 
     # Core workflow fields that ALL workflow tools need
     step: str = Field(..., description=WORKFLOW_FIELD_DESCRIPTIONS["step"])

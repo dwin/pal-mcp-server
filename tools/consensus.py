@@ -263,7 +263,9 @@ of the evidence, even when it strongly points in one direction.""",
             "provider error—never swap in another option. Use the `listmodels` tool for the full roster."
         )
 
-        summaries, total, restricted = self._get_ranked_model_summaries()
+        from tools.shared.model_utils import get_ranked_model_summaries, get_restriction_note
+
+        summaries, total, restricted = get_ranked_model_summaries()
         remainder = max(0, total - len(summaries))
         if summaries:
             label = "Allowed models" if restricted else "Top models"
@@ -279,7 +281,7 @@ of the evidence, even when it strongly points in one direction.""",
                 "to inspect availability."
             )
 
-        restriction_note = self._get_restriction_note()
+        restriction_note = get_restriction_note()
         if restriction_note and (remainder > 0 or not summaries):
             model_description = f"{model_description} {restriction_note}."
 

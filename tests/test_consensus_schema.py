@@ -1,7 +1,5 @@
 """Schema-related tests for ConsensusTool."""
 
-from types import MethodType
-
 from tools.consensus import ConsensusTool
 
 
@@ -11,11 +9,10 @@ def test_consensus_models_field_includes_available_models(monkeypatch):
     tool = ConsensusTool()
 
     monkeypatch.setattr(
-        tool,
-        "_get_ranked_model_summaries",
-        MethodType(lambda self, limit=5: (["gemini-3.1-pro-preview (score 100, 1.0M ctx, thinking)"], 1, False), tool),
+        "tools.shared.model_utils.get_ranked_model_summaries",
+        lambda limit=5: (["gemini-3.1-pro-preview (score 100, 1.0M ctx, thinking)"], 1, False),
     )
-    monkeypatch.setattr(tool, "_get_restriction_note", MethodType(lambda self: None, tool))
+    monkeypatch.setattr("tools.shared.model_utils.get_restriction_note", lambda: None)
 
     schema = tool.get_input_schema()
     models_field_description = schema["properties"]["models"]["description"]

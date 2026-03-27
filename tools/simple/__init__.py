@@ -1,18 +1,9 @@
 """
-Simple tools for PAL MCP.
+Backward-compatibility shim for simple tools.
 
-Simple tools follow a basic request → AI model → response pattern.
-They inherit from SimpleTool which provides streamlined functionality
-for tools that don't need multi-step workflows.
-
-Available simple tools:
-- chat: General chat and collaborative thinking
-- consensus: Multi-perspective analysis
-- listmodels: Model listing and information
-- testgen: Test generation
-- tracer: Execution tracing
+SimpleTool has been merged into BaseTool. This module preserves the import path.
 """
 
-from .base import SimpleTool
+from tools.shared.base_tool import BaseTool as SimpleTool
 
 __all__ = ["SimpleTool"]

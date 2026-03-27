@@ -10,16 +10,13 @@ This is a simple, self-contained tool that doesn't require AI model access.
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from pydantic import Field
-
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
 from config import TEMPERATURE_ANALYTICAL
 from tools.shared.base_models import ToolRequest
+from tools.shared.base_tool import BaseTool
 from tools.shared.exceptions import ToolExecutionError
-
-from .simple.base import SimpleTool
 
 # Field descriptions for the Challenge tool
 CHALLENGE_FIELD_DESCRIPTIONS = {
@@ -30,13 +27,13 @@ CHALLENGE_FIELD_DESCRIPTIONS = {
 }
 
 
-class ChallengeRequest(ToolRequest):
-    """Request model for Challenge tool"""
+class ChallengeRequest(ToolRequest, total=False):
+    """Request model for Challenge tool (TypedDict)."""
 
-    prompt: str = Field(..., description=CHALLENGE_FIELD_DESCRIPTIONS["prompt"])
+    prompt: str
 
 
-class ChallengeTool(SimpleTool):
+class ChallengeTool(BaseTool):
     """
     Challenge tool for encouraging critical thinking and avoiding automatic agreement.
 
@@ -122,12 +119,12 @@ class ChallengeTool(SimpleTool):
             request = self.get_request_model()(**arguments)
 
             # Wrap the prompt in challenge instructions
-            wrapped_prompt = self._wrap_prompt_for_challenge(request.prompt)
+            wrapped_prompt = self._wrap_prompt_for_challenge(self._get_field(request, "prompt"))
 
             # Return the wrapped prompt as the response
             response_data = {
                 "status": "challenge_accepted",
-                "original_statement": request.prompt,
+                "original_statement": self._get_field(request, "prompt"),
                 "challenge_prompt": wrapped_prompt,
                 "instructions": (
                     "Present the challenge_prompt to yourself and follow its instructions. "

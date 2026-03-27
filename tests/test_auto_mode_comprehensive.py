@@ -16,6 +16,7 @@ from tools.chat import ChatTool
 from tools.debug import DebugIssueTool
 from tools.models import ToolModelCategory
 from tools.shared.exceptions import ToolExecutionError
+from tools.shared.model_utils import build_auto_mode_required_message
 from tools.thinkdeep import ThinkDeepTool
 
 
@@ -245,12 +246,12 @@ class TestAutoModeComprehensive:
 
             # Test ChatTool (FAST_RESPONSE) - auto mode should suggest flash variant
             chat_tool = ChatTool()
-            chat_message = chat_tool._build_auto_mode_required_message()
+            chat_message = build_auto_mode_required_message(chat_tool.get_name(), chat_tool.get_model_category())
             assert "flash" in chat_message
 
             # Test DebugIssueTool (EXTENDED_REASONING) - auto mode should suggest pro variant
             debug_tool = DebugIssueTool()
-            debug_message = debug_tool._build_auto_mode_required_message()
+            debug_message = build_auto_mode_required_message(debug_tool.get_name(), debug_tool.get_model_category())
             assert "pro" in debug_message
 
     def test_auto_mode_schema_includes_all_available_models(self):

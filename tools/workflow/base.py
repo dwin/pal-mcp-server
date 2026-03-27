@@ -22,11 +22,14 @@ from .schema_builders import WorkflowSchemaBuilder
 from .workflow_mixin import BaseWorkflowMixin
 
 
-class WorkflowTool(BaseTool, BaseWorkflowMixin):
+class StatefulTool(BaseTool, BaseWorkflowMixin):
     """
-    Base class for workflow (multi-step) tools.
+    Base class for stateful (multi-step workflow) tools.
 
-    Workflow tools perform systematic multi-step work with expert analysis.
+    Renamed from WorkflowTool in v10 to better reflect that these tools
+    maintain state across multiple invocations.
+
+    Stateful tools perform systematic multi-step work with expert analysis.
     They benefit from:
     - Automatic workflow orchestration from BaseWorkflowMixin
     - Automatic schema generation using SchemaBuilder
@@ -34,34 +37,14 @@ class WorkflowTool(BaseTool, BaseWorkflowMixin):
     - Progress tracking with ConsolidatedFindings
     - Expert analysis integration
 
-    To create a workflow tool:
-    1. Inherit from WorkflowTool
+    To create a stateful tool:
+    1. Inherit from StatefulTool
     2. Tool name is automatically provided by get_name() method
     3. Implement get_required_actions() for step guidance
     4. Implement should_call_expert_analysis() for completion criteria
     5. Implement prepare_expert_analysis_context() for expert prompts
     6. Optionally implement get_tool_fields() for additional fields
     7. Optionally override workflow behavior methods
-
-    Example:
-        class DebugTool(WorkflowTool):
-            # get_name() is inherited from BaseTool
-
-            def get_tool_fields(self) -> Dict[str, Dict[str, Any]]:
-                return {
-                    "hypothesis": {
-                        "type": "string",
-                        "description": "Current theory about the issue",
-                    }
-                }
-
-            def get_required_actions(
-                self, step_number: int, confidence: str, findings: str, total_steps: int
-            ) -> List[str]:
-                return ["Examine relevant code files", "Trace execution flow", "Check error logs"]
-
-            def should_call_expert_analysis(self, consolidated_findings) -> bool:
-                return len(consolidated_findings.relevant_files) > 0
     """
 
     def __init__(self):
@@ -446,3 +429,7 @@ class WorkflowTool(BaseTool, BaseWorkflowMixin):
     async def execute(self, arguments: dict[str, Any]) -> list:
         """Execute the workflow tool - delegates to BaseWorkflowMixin."""
         return await self.execute_workflow(arguments)
+
+
+# Backward-compatibility alias
+WorkflowTool = StatefulTool

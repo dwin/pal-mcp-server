@@ -12,7 +12,7 @@ import os
 import pytest
 
 from providers.registry import ModelProviderRegistry
-from tools.analyze import AnalyzeTool
+from tools.shared.model_utils import get_available_models
 
 
 @pytest.mark.no_mock_provider
@@ -79,8 +79,7 @@ class TestModelEnumeration:
         """Test that no native models are included when no providers are configured."""
         self._setup_environment({})  # No providers configured
 
-        tool = AnalyzeTool()
-        models = tool._get_available_models()
+        models = get_available_models()
 
         # After the fix, models should only be shown from enabled providers
         # With no API keys configured, no providers should be enabled
@@ -100,8 +99,7 @@ class TestModelEnumeration:
         """Test that OpenRouter models are NOT included when API key is not configured."""
         self._setup_environment({})  # No OpenRouter key
 
-        tool = AnalyzeTool()
-        models = tool._get_available_models()
+        models = get_available_models()
 
         # OpenRouter-specific models should NOT be present
         openrouter_only_models = ["opus", "sonnet", "haiku"]
@@ -113,8 +111,7 @@ class TestModelEnumeration:
         """Test that custom models are NOT included when CUSTOM_API_URL is not configured."""
         self._setup_environment({})  # No custom URL
 
-        tool = AnalyzeTool()
-        models = tool._get_available_models()
+        models = get_available_models()
 
         # Custom-only models should NOT be present
         custom_only_models = ["local-llama", "llama3.2"]
@@ -126,8 +123,7 @@ class TestModelEnumeration:
         """Ensure OpenRouter access alone does not surface custom-only endpoints."""
         self._setup_environment({"OPENROUTER_API_KEY": "test-openrouter-key"})
 
-        tool = AnalyzeTool()
-        models = tool._get_available_models()
+        models = get_available_models()
 
         for alias in ("local-llama", "llama3.2"):
             assert alias not in models, f"Custom model alias '{alias}' should remain hidden without CUSTOM_API_URL"
@@ -141,8 +137,7 @@ class TestModelEnumeration:
             }
         )
 
-        tool = AnalyzeTool()
-        models = tool._get_available_models()
+        models = get_available_models()
 
         # Count occurrences of each model
         model_counts = {}
@@ -168,8 +163,7 @@ class TestModelEnumeration:
         """Test that native models are only present when their provider has API keys configured."""
         self._setup_environment({})  # No providers
 
-        tool = AnalyzeTool()
-        models = tool._get_available_models()
+        models = get_available_models()
 
         if should_exist:
             assert model_name in models, f"Model {model_name} should be present"
@@ -204,9 +198,9 @@ class TestModelEnumeration:
         monkeypatch.setenv("OPENROUTER_MODELS_CONFIG_PATH", str(config_path))
 
         # Reset cached registries so the temporary config is loaded
-        from tools.shared.base_tool import BaseTool
+        import tools.shared.model_utils as _mu
 
-        monkeypatch.setattr(BaseTool, "_openrouter_registry_cache", None, raising=False)
+        monkeypatch.setattr(_mu, "_openrouter_registry_cache", None, raising=False)
 
         from providers.openrouter import OpenRouterProvider
 
@@ -218,8 +212,7 @@ class TestModelEnumeration:
 
         ModelProviderRegistry.register_provider(ProviderType.OPENROUTER, OpenRouterProvider)
 
-        tool = AnalyzeTool()
-        models = tool._get_available_models()
+        models = get_available_models()
 
         assert "deepseek/deepseek-r1:free" in models, "Canonical free model name should be available"
         assert "deepseek-free" in models, "Free model alias should be included for MCP validation"

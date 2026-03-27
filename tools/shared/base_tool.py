@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 from config import MCP_PROMPT_SIZE_LIMIT
 from providers import ModelProvider, ModelProviderRegistry
+from tools.shared import model_utils
 from utils import estimate_tokens
 from utils.conversation_memory import (
     ConversationTurn,
@@ -80,31 +81,6 @@ class BaseTool(ABC):
     3. Define a request model that inherits from ToolRequest
     4. Register the tool in server.py's TOOLS dictionary
     """
-
-    # Class-level cache for OpenRouter registry to avoid multiple loads
-    _openrouter_registry_cache = None
-    _custom_registry_cache = None
-
-    @classmethod
-    def _get_openrouter_registry(cls):
-        """Get cached OpenRouter registry instance, creating if needed."""
-        # Use BaseTool class directly to ensure cache is shared across all subclasses
-        if BaseTool._openrouter_registry_cache is None:
-            from providers.registries.openrouter import OpenRouterModelRegistry
-
-            BaseTool._openrouter_registry_cache = OpenRouterModelRegistry()
-            logger.debug("Created cached OpenRouter registry instance")
-        return BaseTool._openrouter_registry_cache
-
-    @classmethod
-    def _get_custom_registry(cls):
-        """Get cached custom-endpoint registry instance."""
-        if BaseTool._custom_registry_cache is None:
-            from providers.registries.custom import CustomEndpointModelRegistry
-
-            BaseTool._custom_registry_cache = CustomEndpointModelRegistry()
-            logger.debug("Created cached Custom registry instance")
-        return BaseTool._custom_registry_cache
 
     def __init__(self):
         # Cache tool metadata at initialization to avoid repeated calls
@@ -280,312 +256,11 @@ class BaseTool(ABC):
 
         return False
 
-    def _get_available_models(self) -> list[str]:
-        """
-        Get list of models available from enabled providers.
-
-        Only returns models from providers that have valid API keys configured.
-        This fixes the namespace collision bug where models from disabled providers
-        were shown to the CLI, causing routing conflicts.
-
-        Returns:
-            List of model names from enabled providers only
-        """
-        from providers.registry import ModelProviderRegistry
-
-        # Get models from enabled providers only (those with valid API keys)
-        all_models = ModelProviderRegistry.get_available_model_names()
-
-        # Add OpenRouter models if OpenRouter is configured
-        openrouter_key = get_env("OPENROUTER_API_KEY")
-        if openrouter_key and openrouter_key != "your_openrouter_api_key_here":
-            try:
-                registry = self._get_openrouter_registry()
-                # Add all aliases from the registry (includes OpenRouter cloud models)
-                for alias in registry.list_aliases():
-                    if alias not in all_models:
-                        all_models.append(alias)
-            except Exception as e:
-                import logging
-
-                logging.debug(f"Failed to add OpenRouter models to enum: {e}")
-
-        # Add custom models if custom API is configured
-        custom_url = get_env("CUSTOM_API_URL")
-        if custom_url:
-            try:
-                registry = self._get_custom_registry()
-                for alias in registry.list_aliases():
-                    if alias not in all_models:
-                        all_models.append(alias)
-            except Exception as e:
-                import logging
-
-                logging.debug(f"Failed to add custom models to enum: {e}")
-
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_models = []
-        for model in all_models:
-            if model not in seen:
-                seen.add(model)
-                unique_models.append(model)
-
-        return unique_models
-
-    def _format_available_models_list(self) -> str:
-        """Return a human-friendly list of available models or guidance when none found."""
-
-        summaries, total, has_restrictions = self._get_ranked_model_summaries()
-        if not summaries:
-            return (
-                "No models detected. Configure provider credentials or set DEFAULT_MODEL to a valid option. "
-                "If the user requested a specific model, respond with this notice instead of substituting another model."
-            )
-        display = "; ".join(summaries)
-        remainder = total - len(summaries)
-        if remainder > 0:
-            display = f"{display}; +{remainder} more (use the `listmodels` tool for the full roster)"
-        return display
-
-    @staticmethod
-    def _format_context_window(tokens: int) -> Optional[str]:
-        """Convert a raw context window into a short display string."""
-
-        if not tokens or tokens <= 0:
-            return None
-
-        if tokens >= 1_000_000:
-            if tokens % 1_000_000 == 0:
-                return f"{tokens // 1_000_000}M ctx"
-            return f"{tokens / 1_000_000:.1f}M ctx"
-
-        if tokens >= 1_000:
-            if tokens % 1_000 == 0:
-                return f"{tokens // 1_000}K ctx"
-            return f"{tokens / 1_000:.1f}K ctx"
-
-        return f"{tokens} ctx"
-
-    def _collect_ranked_capabilities(self) -> list[tuple[int, str, Any]]:
-        """Gather available model capabilities sorted by capability rank."""
-
-        from providers.registry import ModelProviderRegistry
-
-        ranked: list[tuple[int, str, Any]] = []
-        available = ModelProviderRegistry.get_available_models(respect_restrictions=True)
-
-        for model_name, provider_type in available.items():
-            provider = ModelProviderRegistry.get_provider(provider_type)
-            if not provider:
-                continue
-
-            try:
-                capabilities = provider.get_capabilities(model_name)
-            except ValueError:
-                continue
-
-            rank = capabilities.get_effective_capability_rank()
-            ranked.append((rank, model_name, capabilities))
-
-        ranked.sort(key=lambda item: (-item[0], item[1]))
-        return ranked
-
-    @staticmethod
-    def _normalize_model_identifier(name: str) -> str:
-        """Normalize model names for deduplication across providers."""
-
-        normalized = name.lower()
-        if ":" in normalized:
-            normalized = normalized.split(":", 1)[0]
-        if "/" in normalized:
-            normalized = normalized.split("/", 1)[-1]
-        return normalized
-
-    def _get_ranked_model_summaries(self, limit: int = 5) -> tuple[list[str], int, bool]:
-        """Return formatted, ranked model summaries and restriction status."""
-
-        ranked = self._collect_ranked_capabilities()
-
-        # Build allowlist map (provider -> lowercase names) when restrictions are active
-        allowed_map: dict[Any, set[str]] = {}
-        try:
-            from utils.model_restrictions import get_restriction_service
-
-            restriction_service = get_restriction_service()
-            if restriction_service:
-                from providers.shared import ProviderType
-
-                for provider_type in ProviderType:
-                    allowed = restriction_service.get_allowed_models(provider_type)
-                    if allowed:
-                        allowed_map[provider_type] = {name.lower() for name in allowed if name}
-        except Exception:
-            allowed_map = {}
-
-        filtered: list[tuple[int, str, Any]] = []
-        seen_normalized: set[str] = set()
-
-        for rank, model_name, capabilities in ranked:
-            canonical_name = getattr(capabilities, "model_name", model_name)
-            canonical_lower = canonical_name.lower()
-            alias_lower = model_name.lower()
-            provider_type = getattr(capabilities, "provider", None)
-
-            if allowed_map:
-                if provider_type not in allowed_map:
-                    continue
-                allowed_set = allowed_map[provider_type]
-                if canonical_lower not in allowed_set and alias_lower not in allowed_set:
-                    continue
-
-            normalized = self._normalize_model_identifier(canonical_name)
-            if normalized in seen_normalized:
-                continue
-
-            seen_normalized.add(normalized)
-            filtered.append((rank, canonical_name, capabilities))
-
-        summaries: list[str] = []
-        for rank, canonical_name, capabilities in filtered[:limit]:
-            details: list[str] = []
-
-            context_str = self._format_context_window(capabilities.context_window)
-            if context_str:
-                details.append(context_str)
-
-            if capabilities.supports_extended_thinking:
-                details.append("thinking")
-
-            if capabilities.allow_code_generation:
-                details.append("code-gen")
-
-            base = f"{canonical_name} (score {rank}"
-            if details:
-                base = f"{base}, {', '.join(details)}"
-            summaries.append(f"{base})")
-
-        return summaries, len(filtered), bool(allowed_map)
-
-    def _get_restriction_note(self) -> Optional[str]:
-        """Return a string describing active per-provider allowlists, if any."""
-
-        env_labels = {
-            "OPENAI_ALLOWED_MODELS": "OpenAI",
-            "GOOGLE_ALLOWED_MODELS": "Google",
-            "XAI_ALLOWED_MODELS": "X.AI",
-            "OPENROUTER_ALLOWED_MODELS": "OpenRouter",
-            "DIAL_ALLOWED_MODELS": "DIAL",
-        }
-
-        notes: list[str] = []
-        for env_var, label in env_labels.items():
-            raw = get_env(env_var)
-            if not raw:
-                continue
-
-            models = sorted({token.strip() for token in raw.split(",") if token.strip()})
-            if not models:
-                continue
-
-            notes.append(f"{label}: {', '.join(models)}")
-
-        if not notes:
-            return None
-
-        return "Policy allows only → " + "; ".join(notes)
-
-    def _build_model_unavailable_message(self, model_name: str) -> str:
-        """Compose a consistent error message for unavailable model scenarios."""
-
-        tool_category = self.get_model_category()
-        suggested_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
-        available_models_text = self._format_available_models_list()
-
-        return (
-            f"Model '{model_name}' is not available with current API keys. "
-            f"Available models: {available_models_text}. "
-            f"Suggested model for {self.get_name()}: '{suggested_model}' "
-            f"(category: {tool_category.value}). If the user explicitly requested a model, you MUST use that exact name or report this error back—do not substitute another model."
-        )
-
-    def _build_auto_mode_required_message(self) -> str:
-        """Compose the auto-mode prompt when an explicit model selection is required."""
-
-        tool_category = self.get_model_category()
-        suggested_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
-        available_models_text = self._format_available_models_list()
-
-        return (
-            "Model parameter is required in auto mode. "
-            f"Available models: {available_models_text}. "
-            f"Suggested model for {self.get_name()}: '{suggested_model}' "
-            f"(category: {tool_category.value}). When the user names a model, relay that exact name—never swap in another option."
-        )
-
     def get_model_field_schema(self) -> dict[str, Any]:
-        """
-        Generate the model field schema based on auto mode configuration.
+        """Generate the model field schema. Delegates to model_utils."""
+        from tools.shared.model_utils import build_model_field_schema
 
-        When auto mode is enabled, the model parameter becomes required
-        and includes detailed descriptions of each model's capabilities.
-
-        Returns:
-            Dict containing the model field JSON schema
-        """
-
-        from config import DEFAULT_MODEL
-
-        # Use the centralized effective auto mode check
-        if self.is_effective_auto_mode():
-            description = (
-                "Currently in auto model selection mode. CRITICAL: When the user names a model, you MUST use that exact name unless the server rejects it. "
-                "If no model is provided, you may use the `listmodels` tool to review options and select an appropriate match."
-            )
-            summaries, total, restricted = self._get_ranked_model_summaries()
-            remainder = max(0, total - len(summaries))
-            if summaries:
-                top_line = "; ".join(summaries)
-                if remainder > 0:
-                    label = "Allowed models" if restricted else "Top models"
-                    top_line = f"{label}: {top_line}; +{remainder} more via `listmodels`."
-                else:
-                    label = "Allowed models" if restricted else "Top models"
-                    top_line = f"{label}: {top_line}."
-                description = f"{description} {top_line}"
-
-            restriction_note = self._get_restriction_note()
-            if restriction_note and (remainder > 0 or not summaries):
-                description = f"{description} {restriction_note}."
-            return {
-                "type": "string",
-                "description": description,
-            }
-
-        description = (
-            f"The default model is '{DEFAULT_MODEL}'. Override only when the user explicitly requests a different model, and use that exact name. "
-            "If the requested model fails validation, surface the server error instead of substituting another model. When unsure, use the `listmodels` tool for details."
-        )
-        summaries, total, restricted = self._get_ranked_model_summaries()
-        remainder = max(0, total - len(summaries))
-        if summaries:
-            top_line = "; ".join(summaries)
-            if remainder > 0:
-                label = "Allowed models" if restricted else "Preferred alternatives"
-                top_line = f"{label}: {top_line}; +{remainder} more via `listmodels`."
-            else:
-                label = "Allowed models" if restricted else "Preferred alternatives"
-                top_line = f"{label}: {top_line}."
-            description = f"{description} {top_line}"
-
-        restriction_note = self._get_restriction_note()
-        if restriction_note and (remainder > 0 or not summaries):
-            description = f"{description} {restriction_note}."
-
-        return {
-            "type": "string",
-            "description": description,
-        }
+        return build_model_field_schema(self)
 
     def get_default_temperature(self) -> float:
         """
@@ -748,7 +423,9 @@ class BaseTool(ABC):
             provider = ModelProviderRegistry.get_provider_for_model(model_name)
             if not provider:
                 logger.error(f"No provider found for model '{model_name}' in {self.name} tool")
-                raise ValueError(self._build_model_unavailable_message(model_name))
+                raise ValueError(
+                    model_utils.build_model_unavailable_message(self.get_name(), model_name, self.get_model_category())
+                )
 
             return provider
         except Exception as e:
@@ -949,17 +626,21 @@ class BaseTool(ABC):
         """
         Get the content that should be validated for MCP prompt size limits.
 
-        This hook method allows tools to specify what content should be checked
-        against the MCP transport size limit. By default, it returns the user content,
-        but can be overridden to exclude conversation history when needed.
+        When server.py embeds conversation history into the prompt field, it also stores
+        the original user prompt in _original_user_prompt. We use that for size validation
+        to avoid incorrectly triggering size limits due to conversation history.
 
         Args:
-            user_content: The user content that would normally be validated
+            user_content: The user content (may include conversation history)
 
         Returns:
-            The content that should actually be validated for size limits
+            The original user prompt if available, otherwise the full user content
         """
-        # Default implementation: validate the full user content
+        current_args = getattr(self, "_current_arguments", None)
+        if current_args:
+            original_user_prompt = current_args.get("_original_user_prompt")
+            if original_user_prompt is not None:
+                return original_user_prompt
         return user_content
 
     def check_prompt_size(self, text: str) -> Optional[dict[str, Any]]:
@@ -1270,95 +951,577 @@ When recommending searches, be specific about what information you need and why 
         """
         return response
 
-    # === IMPLEMENTATION METHODS ===
-    # These will be provided in a full implementation but are inherited from current base.py
-    # for now to maintain compatibility.
+    # === REQUEST ACCESSOR METHODS ===
+    # Safe attribute access for request objects (merged from SimpleTool)
 
-    async def execute(self, arguments: dict[str, Any]) -> list[TextContent]:
-        """Execute the tool - will be inherited from existing base.py for now."""
-        # This will be implemented by importing from the current base.py
-        # for backward compatibility during the migration
-        raise NotImplementedError("Subclasses must implement execute method")
+    @staticmethod
+    def _get_field(request, key, default=None):
+        """Get field from request (supports both dict and object access)."""
+        if isinstance(request, dict):
+            return request.get(key, default)
+        return getattr(request, key, default)
 
-    def _should_require_model_selection(self, model_name: str) -> bool:
-        """
-        Check if we should require the CLI to select a model at runtime.
+    def get_request_model_name(self, request) -> Optional[str]:
+        """Get model name from request."""
+        return self._get_field(request, "model")
 
-        This is called during request execution to determine if we need
-        to return an error asking the CLI to provide a model parameter.
+    def get_request_images(self, request) -> list:
+        """Get images from request."""
+        images = self._get_field(request, "images")
+        return images if images is not None else []
 
-        Args:
-            model_name: The model name from the request or DEFAULT_MODEL
+    def get_request_continuation_id(self, request) -> Optional[str]:
+        """Get continuation_id from request."""
+        return self._get_field(request, "continuation_id")
 
-        Returns:
-            bool: True if we should require model selection
-        """
-        # Case 1: Model is explicitly "auto"
-        if model_name.lower() == "auto":
-            return True
+    def get_request_prompt(self, request) -> str:
+        """Get prompt from request."""
+        return self._get_field(request, "prompt", "")
 
-        # Case 2: Requested model is not available
-        from providers.registry import ModelProviderRegistry
+    def get_request_temperature(self, request) -> Optional[float]:
+        """Get temperature from request."""
+        return self._get_field(request, "temperature")
 
-        provider = ModelProviderRegistry.get_provider_for_model(model_name)
-        if not provider:
-            logger.warning(f"Model '{model_name}' is not available with current API keys. Requiring model selection.")
-            return True
+    def get_validated_temperature(self, request, model_context: Any) -> tuple[float, list[str]]:
+        """Get temperature from request and validate against model constraints."""
+        temperature = self.get_request_temperature(request)
+        if temperature is None:
+            temperature = self.get_default_temperature()
+        return self.validate_and_correct_temperature(temperature, model_context)
 
-        return False
+    def get_request_thinking_mode(self, request) -> Optional[str]:
+        """Get thinking_mode from request."""
+        return self._get_field(request, "thinking_mode")
 
-    def _get_available_models(self) -> list[str]:
-        """
-        Get list of models available from enabled providers.
+    def get_request_files(self, request) -> list:
+        """Get absolute file paths from request."""
+        files = self._get_field(request, "absolute_file_paths")
+        return files if files is not None else []
 
-        Only returns models from providers that have valid API keys configured.
-        This fixes the namespace collision bug where models from disabled providers
-        were shown to the CLI, causing routing conflicts.
-
-        Returns:
-            List of model names from enabled providers only
-        """
-        from providers.registry import ModelProviderRegistry
-
-        # Get models from enabled providers only (those with valid API keys)
-        all_models = ModelProviderRegistry.get_available_model_names()
-
-        # Add OpenRouter models and their aliases when OpenRouter is configured
-        openrouter_key = get_env("OPENROUTER_API_KEY")
-        if openrouter_key and openrouter_key != "your_openrouter_api_key_here":
+    def get_request_as_dict(self, request) -> dict:
+        """Convert request to dictionary."""
+        if isinstance(request, dict):
+            return dict(request)
+        try:
+            return request.model_dump()
+        except AttributeError:
             try:
-                registry = self._get_openrouter_registry()
+                return request.dict()
+            except AttributeError:
+                return {"prompt": self.get_request_prompt(request)}
 
-                for alias in registry.list_aliases():
-                    if alias not in all_models:
-                        all_models.append(alias)
-            except Exception as exc:  # pragma: no cover - logged for observability
-                import logging
-
-                logging.debug(f"Failed to add OpenRouter models to enum: {exc}")
-
-        # Add custom models (and their aliases) when a custom endpoint is available
-        custom_url = get_env("CUSTOM_API_URL")
-        if custom_url:
+    def set_request_files(self, request, files: list) -> None:
+        """Set absolute file paths on request."""
+        if isinstance(request, dict):
+            request["absolute_file_paths"] = files
+        else:
             try:
-                registry = self._get_custom_registry()
-                for alias in registry.list_aliases():
-                    if alias not in all_models:
-                        all_models.append(alias)
-            except Exception as exc:  # pragma: no cover - logged for observability
-                import logging
+                request.absolute_file_paths = files
+            except AttributeError:
+                pass
 
-                logging.debug(f"Failed to add custom models to enum: {exc}")
+    def get_actually_processed_files(self) -> list:
+        """Get actually processed files."""
+        return getattr(self, "_actually_processed_files", [])
 
-        # Remove duplicates while preserving insertion order
-        seen: set[str] = set()
-        unique_models: list[str] = []
-        for model in all_models:
-            if model not in seen:
-                seen.add(model)
-                unique_models.append(model)
+    # === PROMPT BUILDING METHODS ===
+    # Convenience methods for building prompts (merged from SimpleTool)
 
-        return unique_models
+    def build_standard_prompt(
+        self, system_prompt: str, user_content: str, request, file_context_title: str = "CONTEXT FILES"
+    ) -> str:
+        """Build a standard prompt with system prompt, user content, and optional files."""
+        content_to_validate = self.get_prompt_content_for_size_validation(user_content)
+        self._validate_token_limit(content_to_validate, "Content")
+
+        files = self.get_request_files(request)
+        if files:
+            file_content, processed_files = self._prepare_file_content_for_prompt(
+                files,
+                self.get_request_continuation_id(request),
+                "Context files",
+                model_context=getattr(self, "_model_context", None),
+            )
+            self._actually_processed_files = processed_files
+            if file_content:
+                user_content = f"{user_content}\n\n=== {file_context_title} ===\n{file_content}\n=== END CONTEXT ===="
+
+        websearch_instruction = self.get_websearch_instruction(self.get_websearch_guidance())
+
+        full_prompt = f"""{system_prompt}{websearch_instruction}
+
+=== USER REQUEST ===
+{user_content}
+=== END REQUEST ===
+
+Please provide a thoughtful, comprehensive response:"""
+
+        return full_prompt
+
+    def get_websearch_guidance(self) -> Optional[str]:
+        """Return tool-specific web search guidance. Override for custom guidance."""
+        return None
+
+    def get_chat_style_websearch_guidance(self) -> str:
+        """Get Chat tool-style web search guidance."""
+        return """When discussing topics, consider if searches for these would help:
+- Documentation for any technologies or concepts mentioned
+- Current best practices and patterns
+- Recent developments or updates
+- Community discussions and solutions"""
+
+    def handle_prompt_file_with_fallback(self, request) -> str:
+        """Handle prompt.txt files with fallback to request field."""
+        files = self.get_request_files(request)
+        if files:
+            prompt_content, updated_files = self.handle_prompt_file(files)
+            if updated_files is not None:
+                self.set_request_files(request, updated_files)
+        else:
+            prompt_content = None
+
+        user_content = prompt_content if prompt_content else self.get_request_prompt(request)
+
+        validation_content = self.get_prompt_content_for_size_validation(user_content)
+        size_check = self.check_prompt_size(validation_content)
+        if size_check:
+            from tools.models import ToolOutput
+
+            raise ValueError(f"MCP_SIZE_CHECK:{ToolOutput(**size_check).model_dump_json()}")
+
+        return user_content
+
+    def prepare_chat_style_prompt(self, request, system_prompt: str = None) -> str:
+        """Prepare a prompt using Chat tool-style patterns."""
+        if system_prompt is None:
+            system_prompt = self.get_system_prompt()
+
+        user_content = self.handle_prompt_file_with_fallback(request)
+        websearch_guidance = self.get_chat_style_websearch_guidance()
+
+        original_guidance = self.get_websearch_guidance
+        self.get_websearch_guidance = lambda: websearch_guidance
+
+        try:
+            full_prompt = self.build_standard_prompt(system_prompt, user_content, request, "CONTEXT FILES")
+        finally:
+            self.get_websearch_guidance = original_guidance
+
+        if system_prompt:
+            marker = "\n\n=== USER REQUEST ===\n"
+            if marker in full_prompt:
+                _, user_section = full_prompt.split(marker, 1)
+                return f"=== USER REQUEST ===\n{user_section}"
+
+        return full_prompt
+
+    def supports_custom_request_model(self) -> bool:
+        """Indicate whether this tool uses a custom request model."""
+        from tools.shared.base_models import ToolRequest
+
+        return self.get_request_model() != ToolRequest
+
+    # === EXECUTION METHODS ===
+
+    async def execute(self, arguments: dict[str, Any]) -> list:
+        """
+        Execute the tool with the comprehensive flow.
+
+        This method handles request validation, model resolution, prompt preparation,
+        AI model invocation, and response formatting.
+        """
+        from tools.models import ToolOutput
+        from tools.shared.exceptions import ToolExecutionError
+
+        tool_logger = logging.getLogger(f"tools.{self.get_name()}")
+
+        try:
+            self._current_arguments = arguments
+
+            tool_logger.info(f"🔧 {self.get_name()} tool called with arguments: {list(arguments.keys())}")
+
+            # Validate request using the tool's model
+            request_model = self.get_request_model()
+            request = request_model(**arguments)
+            tool_logger.debug(f"Request validation successful for {self.get_name()}")
+
+            # Validate file paths for security
+            path_error = self._validate_file_paths(request)
+            if path_error:
+                error_output = ToolOutput(
+                    status="error",
+                    content=path_error,
+                    content_type="text",
+                )
+                tool_logger.error("Path validation failed for %s: %s", self.get_name(), path_error)
+                raise ToolExecutionError(error_output.model_dump_json())
+
+            # Handle model resolution
+            model_name = self.get_request_model_name(request)
+            if not model_name:
+                from config import DEFAULT_MODEL
+
+                model_name = DEFAULT_MODEL
+
+            self._current_model_name = model_name
+
+            if "_model_context" in arguments:
+                self._model_context = arguments["_model_context"]
+            else:
+                from utils.model_context import ModelContext
+
+                self._model_context = ModelContext(model_name)
+
+            images = self.get_request_images(request)
+            continuation_id = self.get_request_continuation_id(request)
+
+            # Handle conversation history and prompt preparation
+            if continuation_id:
+                field_value = self.get_request_prompt(request)
+                if "=== CONVERSATION HISTORY ===" in field_value:
+                    prompt = field_value
+                else:
+                    from utils.conversation_memory import add_turn, build_conversation_history, get_thread
+
+                    thread_context = get_thread(continuation_id)
+
+                    if thread_context:
+                        user_prompt = self.get_request_prompt(request)
+                        user_files = self.get_request_files(request)
+                        if user_prompt:
+                            add_turn(continuation_id, "user", user_prompt, files=user_files)
+                            thread_context = get_thread(continuation_id)
+
+                        conversation_history, conversation_tokens = build_conversation_history(
+                            thread_context, self._model_context
+                        )
+                        base_prompt = await self.prepare_prompt(request)
+
+                        if conversation_history:
+                            prompt = f"{conversation_history}\n\n=== NEW USER INPUT ===\n{base_prompt}"
+                        else:
+                            prompt = base_prompt
+                    else:
+                        prompt = await self.prepare_prompt(request)
+            else:
+                prompt = await self.prepare_prompt(request)
+                from server import get_follow_up_instructions
+
+                follow_up_instructions = get_follow_up_instructions(0)
+                prompt = f"{prompt}\n\n{follow_up_instructions}"
+
+            # Validate images
+            if images:
+                image_validation_error = self._validate_image_limits(
+                    images, model_context=self._model_context, continuation_id=continuation_id
+                )
+                if image_validation_error:
+                    error_output = ToolOutput(
+                        status=image_validation_error.get("status", "error"),
+                        content=image_validation_error.get("content"),
+                        content_type=image_validation_error.get("content_type", "text"),
+                        metadata=image_validation_error.get("metadata"),
+                    )
+                    payload = error_output.model_dump_json()
+                    raise ToolExecutionError(payload)
+
+            # Get and validate temperature
+            temperature, temp_warnings = self.get_validated_temperature(request, self._model_context)
+            for warning in temp_warnings:
+                tool_logger.warning(warning)
+
+            thinking_mode = self.get_request_thinking_mode(request)
+            if thinking_mode is None:
+                thinking_mode = self.get_default_thinking_mode()
+
+            provider = self._model_context.provider
+            capabilities = self._model_context.capabilities
+
+            # Build system prompt
+            base_system_prompt = self.get_system_prompt()
+            capability_augmented_prompt = self._augment_system_prompt_with_capabilities(
+                base_system_prompt, capabilities
+            )
+            language_instruction = self.get_language_instruction()
+            system_prompt = language_instruction + capability_augmented_prompt
+
+            tool_logger.info(
+                f"Using model: {self._model_context.model_name} via {provider.get_provider_type().value} provider"
+            )
+
+            supports_thinking = capabilities.supports_extended_thinking
+
+            # Generate AI response
+            model_response = provider.generate_content(
+                prompt=prompt,
+                model_name=self._current_model_name,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                thinking_mode=thinking_mode if supports_thinking else None,
+                images=images if images else None,
+            )
+
+            if model_response.content:
+                raw_text = model_response.content
+                model_info = {
+                    "provider": provider,
+                    "model_name": self._current_model_name,
+                    "model_response": model_response,
+                }
+                tool_output = self._parse_response(raw_text, request, model_info)
+            else:
+                metadata = model_response.metadata or {}
+                finish_reason = metadata.get("finish_reason", "Unknown")
+
+                if metadata.get("is_blocked_by_safety"):
+                    safety_details = metadata.get("safety_feedback") or "details not provided"
+                    tool_logger.warning(
+                        f"Response blocked by content safety policy for {self.get_name()}. "
+                        f"Reason: {finish_reason}, Details: {safety_details}"
+                    )
+                    tool_output = ToolOutput(
+                        status="error",
+                        content="Your request was blocked by the content safety policy. Please try modifying your prompt.",
+                        content_type="text",
+                    )
+                elif finish_reason == "STOP":
+                    retry_prompt = f"{prompt}\n\nIMPORTANT: Please provide a substantive response."
+                    try:
+                        retry_response = provider.generate_content(
+                            prompt=retry_prompt,
+                            model_name=self._current_model_name,
+                            system_prompt=system_prompt,
+                            temperature=temperature,
+                            thinking_mode=thinking_mode if supports_thinking else None,
+                            images=images if images else None,
+                        )
+                        if retry_response.content:
+                            raw_text = retry_response.content
+                            model_info = {
+                                "provider": provider,
+                                "model_name": self._current_model_name,
+                                "model_response": retry_response,
+                            }
+                            tool_output = self._parse_response(raw_text, request, model_info)
+                        else:
+                            tool_output = ToolOutput(
+                                status="error",
+                                content="The model repeatedly returned empty responses.",
+                                content_type="text",
+                            )
+                    except Exception as retry_error:
+                        tool_output = ToolOutput(
+                            status="error",
+                            content=f"Model returned empty response and retry failed: {str(retry_error)}",
+                            content_type="text",
+                        )
+                else:
+                    tool_output = ToolOutput(
+                        status="error",
+                        content=f"Response blocked or incomplete. Finish reason: {finish_reason}",
+                        content_type="text",
+                    )
+
+            payload = tool_output.model_dump_json()
+            if tool_output.status == "error":
+                raise ToolExecutionError(payload)
+            return [TextContent(type="text", text=payload)]
+
+        except ToolExecutionError:
+            raise
+        except Exception as e:
+            if str(e).startswith("MCP_SIZE_CHECK:"):
+                json_content = str(e)[len("MCP_SIZE_CHECK:") :]
+                raise ToolExecutionError(json_content)
+
+            tool_logger.error(f"Error in {self.get_name()}: {str(e)}")
+            error_output = ToolOutput(
+                status="error",
+                content=f"Error in {self.get_name()}: {str(e)}",
+                content_type="text",
+            )
+            raise ToolExecutionError(error_output.model_dump_json()) from e
+
+    def _parse_response(self, raw_text: str, request, model_info: Optional[dict] = None):
+        """Parse the raw response and format it, handle conversation continuation."""
+        from tools.models import ToolOutput
+
+        formatted_response = self.format_response(raw_text, request, model_info)
+
+        continuation_id = self.get_request_continuation_id(request)
+        if continuation_id:
+            self._record_assistant_turn(continuation_id, raw_text, request, model_info)
+
+        continuation_data = self._create_continuation_offer(request, model_info)
+        if continuation_data:
+            return self._create_continuation_offer_response(formatted_response, continuation_data, request, model_info)
+        else:
+            metadata = {}
+            if model_info:
+                model_name = model_info.get("model_name")
+                if model_name:
+                    metadata["model_used"] = model_name
+                provider = model_info.get("provider")
+                if provider:
+                    if isinstance(provider, str):
+                        metadata["provider_used"] = provider
+                    else:
+                        try:
+                            metadata["provider_used"] = provider.get_provider_type().value
+                        except AttributeError:
+                            metadata["provider_used"] = str(provider)
+
+            return ToolOutput(
+                status="success",
+                content=formatted_response,
+                content_type="text",
+                metadata=metadata if metadata else None,
+            )
+
+    def _create_continuation_offer(self, request, model_info: Optional[dict] = None):
+        """Create continuation offer for conversation threading."""
+        continuation_id = self.get_request_continuation_id(request)
+
+        try:
+            from utils.conversation_memory import create_thread, get_thread
+
+            if continuation_id:
+                thread_context = get_thread(continuation_id)
+                if thread_context and thread_context.turns:
+                    turn_count = len(thread_context.turns)
+                    from utils.conversation_memory import MAX_CONVERSATION_TURNS
+
+                    if turn_count >= MAX_CONVERSATION_TURNS - 1:
+                        return None
+
+                    remaining_turns = MAX_CONVERSATION_TURNS - turn_count - 1
+                    return {
+                        "continuation_id": continuation_id,
+                        "remaining_turns": remaining_turns,
+                        "note": f"You can continue this conversation for {remaining_turns} more exchanges.",
+                    }
+            else:
+                initial_request_dict = self.get_request_as_dict(request)
+                new_thread_id = create_thread(tool_name=self.get_name(), initial_request=initial_request_dict)
+
+                from utils.conversation_memory import MAX_CONVERSATION_TURNS, add_turn
+
+                user_prompt = self.get_request_prompt(request)
+                user_files = self.get_request_files(request)
+                user_images = self.get_request_images(request)
+
+                add_turn(
+                    new_thread_id, "user", user_prompt, files=user_files, images=user_images, tool_name=self.get_name()
+                )
+
+                return {
+                    "continuation_id": new_thread_id,
+                    "remaining_turns": MAX_CONVERSATION_TURNS - 1,
+                    "note": f"You can continue this conversation for {MAX_CONVERSATION_TURNS - 1} more exchanges.",
+                }
+        except Exception:
+            return None
+
+    def _create_continuation_offer_response(
+        self, content: str, continuation_data: dict, request, model_info: Optional[dict] = None
+    ):
+        """Create response with continuation offer."""
+        from tools.models import ContinuationOffer, ToolOutput
+
+        try:
+            if not self.get_request_continuation_id(request):
+                self._record_assistant_turn(
+                    continuation_data["continuation_id"],
+                    content,
+                    request,
+                    model_info,
+                )
+
+            continuation_offer = ContinuationOffer(
+                continuation_id=continuation_data["continuation_id"],
+                note=continuation_data["note"],
+                remaining_turns=continuation_data["remaining_turns"],
+            )
+
+            metadata = {"tool_name": self.get_name(), "conversation_ready": True}
+            if model_info:
+                model_name = model_info.get("model_name")
+                if model_name:
+                    metadata["model_used"] = model_name
+                provider = model_info.get("provider")
+                if provider:
+                    if isinstance(provider, str):
+                        metadata["provider_used"] = provider
+                    else:
+                        try:
+                            metadata["provider_used"] = provider.get_provider_type().value
+                        except AttributeError:
+                            metadata["provider_used"] = str(provider)
+
+            return ToolOutput(
+                status="continuation_available",
+                content=content,
+                content_type="text",
+                continuation_offer=continuation_offer,
+                metadata=metadata,
+            )
+        except Exception:
+            return ToolOutput(status="success", content=content, content_type="text")
+
+    def _record_assistant_turn(
+        self, continuation_id: str, response_text: str, request, model_info: Optional[dict]
+    ) -> None:
+        """Persist an assistant response in conversation memory."""
+        if not continuation_id:
+            return
+
+        from utils.conversation_memory import add_turn
+
+        model_provider = None
+        model_name = None
+        model_metadata = None
+
+        if model_info:
+            provider = model_info.get("provider")
+            if provider:
+                if isinstance(provider, str):
+                    model_provider = provider
+                else:
+                    try:
+                        model_provider = provider.get_provider_type().value
+                    except AttributeError:
+                        model_provider = str(provider)
+            model_name = model_info.get("model_name")
+            model_response = model_info.get("model_response")
+            if model_response:
+                model_metadata = {"usage": model_response.usage, "metadata": model_response.metadata}
+
+        add_turn(
+            continuation_id,
+            "assistant",
+            response_text,
+            files=self.get_request_files(request),
+            images=self.get_request_images(request),
+            tool_name=self.get_name(),
+            model_provider=model_provider,
+            model_name=model_name,
+            model_metadata=model_metadata,
+        )
+
+    def _validate_file_paths(self, request) -> Optional[str]:
+        """Validate that all file paths in the request are absolute paths."""
+        files = self.get_request_files(request)
+        if files:
+            for file_path in files:
+                if not os.path.isabs(file_path):
+                    return (
+                        f"Error: All file paths must be FULL absolute paths to real files / folders - DO NOT SHORTEN. "
+                        f"Received relative path: {file_path}\n"
+                        f"Please provide the full absolute path starting with '/' (must be FULL absolute paths to real files / folders - DO NOT SHORTEN)"
+                    )
+        return None
+
+    # === MODEL RESOLUTION ===
 
     def _resolve_model_context(self, arguments: dict, request) -> tuple[str, Any]:
         """
@@ -1399,9 +1562,13 @@ When recommending searches, be specific about what information you need and why 
             if self._should_require_model_selection(model_name):
                 # Build error message based on why selection is required
                 if model_name.lower() == "auto":
-                    error_message = self._build_auto_mode_required_message()
+                    error_message = model_utils.build_auto_mode_required_message(
+                        self.get_name(), self.get_model_category()
+                    )
                 else:
-                    error_message = self._build_model_unavailable_message(model_name)
+                    error_message = model_utils.build_model_unavailable_message(
+                        self.get_name(), model_name, self.get_model_category()
+                    )
                 raise ValueError(error_message)
 
             # Create model context for tests
@@ -1491,7 +1658,9 @@ When recommending searches, be specific about what information you need and why 
             model_name = getattr(model_context, "model_name", "unknown")
             return {
                 "status": "error",
-                "content": self._build_model_unavailable_message(model_name),
+                "content": model_utils.build_model_unavailable_message(
+                    self.get_name(), model_name, self.get_model_category()
+                ),
                 "content_type": "text",
                 "metadata": {
                     "error_type": "validation_error",
@@ -1599,8 +1768,3 @@ When recommending searches, be specific about what information you need and why 
         # All validations passed
         logger.debug(f"Image validation passed: {len(images)} images, {total_size_mb:.1f}MB total")
         return None
-
-    def _parse_response(self, raw_text: str, request, model_info: Optional[dict] = None):
-        """Parse response - will be inherited for now."""
-        # Implementation inherited from current base.py
-        raise NotImplementedError("Subclasses must implement _parse_response method")

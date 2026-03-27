@@ -61,22 +61,19 @@ class TestChallengeTool:
         """Test that the request model validates correctly"""
         # Test valid request
         request = ChallengeRequest(prompt="The sky is green")
-        assert request.prompt == "The sky is green"
+        assert request["prompt"] == "The sky is green"
 
         # Test with longer prompt
         long_prompt = (
             "Machine learning models always produce accurate results and should be trusted without verification"
         )
         request = ChallengeRequest(prompt=long_prompt)
-        assert request.prompt == long_prompt
+        assert request["prompt"] == long_prompt
 
     def test_required_fields(self):
-        """Test that required fields are enforced"""
-        from pydantic import ValidationError
-
-        # Missing prompt should raise validation error
-        with pytest.raises(ValidationError):
-            ChallengeRequest()
+        """Test that required fields are defined in annotations"""
+        # ChallengeRequest is a TypedDict - verify prompt is annotated
+        assert "prompt" in ChallengeRequest.__annotations__
 
     @pytest.mark.asyncio
     async def test_execute_success(self):
@@ -142,7 +139,7 @@ class TestChallengeTool:
 
         for prompt in test_prompts:
             request = ChallengeRequest(prompt=prompt)
-            wrapped = self.tool._wrap_prompt_for_challenge(request.prompt)
+            wrapped = self.tool._wrap_prompt_for_challenge(request["prompt"])
 
             # Each wrapped prompt should contain the original
             assert prompt in wrapped
@@ -178,7 +175,7 @@ class TestChallengeTool:
         """Test handling of special characters in prompts"""
         special_prompt = 'The "best" way to handle errors is to use try/except: pass'
         request = ChallengeRequest(prompt=special_prompt)
-        wrapped = self.tool._wrap_prompt_for_challenge(request.prompt)
+        wrapped = self.tool._wrap_prompt_for_challenge(request["prompt"])
 
         # Should handle quotes properly
         assert special_prompt in wrapped

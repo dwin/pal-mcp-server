@@ -12,8 +12,6 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-from pydantic import Field
-
 if TYPE_CHECKING:
     from providers.shared import ModelCapabilities
     from tools.models import ToolModelCategory
@@ -21,8 +19,7 @@ if TYPE_CHECKING:
 from config import TEMPERATURE_BALANCED
 from systemprompts import CHAT_PROMPT, GENERATE_CODE_PROMPT
 from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, ToolRequest
-
-from .simple.base import SimpleTool
+from tools.shared.base_tool import BaseTool
 
 # Field descriptions matching the original Chat tool exactly
 CHAT_FIELD_DESCRIPTIONS = {
@@ -39,22 +36,16 @@ CHAT_FIELD_DESCRIPTIONS = {
 }
 
 
-class ChatRequest(ToolRequest):
-    """Request model for Chat tool"""
+class ChatRequest(ToolRequest, total=False):
+    """Request model for Chat tool (TypedDict)."""
 
-    prompt: str = Field(..., description=CHAT_FIELD_DESCRIPTIONS["prompt"])
-    absolute_file_paths: Optional[list[str]] = Field(
-        default_factory=list,
-        description=CHAT_FIELD_DESCRIPTIONS["absolute_file_paths"],
-    )
-    images: Optional[list[str]] = Field(default_factory=list, description=CHAT_FIELD_DESCRIPTIONS["images"])
-    working_directory_absolute_path: str = Field(
-        ...,
-        description=CHAT_FIELD_DESCRIPTIONS["working_directory_absolute_path"],
-    )
+    prompt: str
+    absolute_file_paths: Optional[list[str]]
+    images: Optional[list[str]]
+    working_directory_absolute_path: str
 
 
-class ChatTool(SimpleTool):
+class ChatTool(BaseTool):
     """
     General development chat and collaborative thinking tool using SimpleTool architecture.
 
@@ -218,7 +209,7 @@ class ChatTool(SimpleTool):
         if error:
             return error
 
-        working_directory = request.working_directory_absolute_path
+        working_directory = self._get_field(request, "working_directory_absolute_path")
         if working_directory:
             expanded = os.path.expanduser(working_directory)
             if not os.path.isabs(expanded):
@@ -245,7 +236,7 @@ class ChatTool(SimpleTool):
             block, remainder, _ = self._extract_generated_code_block(response)
             if block:
                 sanitized_text = remainder.strip()
-                target_directory = request.working_directory_absolute_path
+                target_directory = self._get_field(request, "working_directory_absolute_path")
                 try:
                     artifact_path = self._persist_generated_code_block(block, target_directory)
                 except Exception as exc:  # pragma: no cover - rare filesystem failures

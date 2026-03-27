@@ -413,11 +413,11 @@ class TestImageSupportIntegration:
 
         # Create request with images
         request = ToolRequest(images=["test.png", "test2.jpg"])
-        assert request.images == ["test.png", "test2.jpg"]
+        assert request["images"] == ["test.png", "test2.jpg"]
 
         # Test default value
         request_no_images = ToolRequest()
-        assert request_no_images.images is None
+        assert request_no_images.get("images") is None
 
     def test_data_url_image_format_support(self):
         """Test that tools can handle data URL format images."""

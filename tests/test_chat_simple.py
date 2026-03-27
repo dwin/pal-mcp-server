@@ -13,6 +13,7 @@ import pytest
 
 from tools.chat import ChatRequest, ChatTool
 from tools.shared.exceptions import ToolExecutionError
+from tools.shared.model_utils import get_available_models
 
 
 class TestChatTool:
@@ -63,24 +64,22 @@ class TestChatTool:
         }
 
         request = ChatRequest(**request_data)
-        assert request.prompt == "Test prompt"
-        assert request.absolute_file_paths == ["test.txt"]
-        assert request.images == ["test.png"]
-        assert request.model == "anthropic/claude-opus-4.1"
-        assert request.temperature == 0.7
-        assert request.working_directory_absolute_path == "/tmp"
+        assert request["prompt"] == "Test prompt"
+        assert request["absolute_file_paths"] == ["test.txt"]
+        assert request["images"] == ["test.png"]
+        assert request["model"] == "anthropic/claude-opus-4.1"
+        assert request["temperature"] == 0.7
+        assert request["working_directory_absolute_path"] == "/tmp"
 
     def test_required_fields(self):
-        """Test that required fields are enforced"""
-        # Missing prompt should raise validation error
-        from pydantic import ValidationError
-
-        with pytest.raises(ValidationError):
-            ChatRequest(model="anthropic/claude-opus-4.1", working_directory_absolute_path="/tmp")
+        """Test that required fields are defined in annotations"""
+        # ChatRequest is a TypedDict - verify required fields are annotated
+        assert "prompt" in ChatRequest.__annotations__
+        assert "working_directory_absolute_path" in ChatRequest.__annotations__
 
     def test_model_availability(self):
         """Test that model availability works"""
-        models = self.tool._get_available_models()
+        models = get_available_models()
         assert len(models) > 0  # Should have some models
         assert isinstance(models, list)
 
@@ -302,26 +301,29 @@ class TestChatRequestModel:
         assert "existing directory" in payload["content"].lower()
 
     def test_default_values(self):
-        """Test that default values work correctly"""
+        """Test that TypedDict fields work correctly"""
         request = ChatRequest(prompt="Test", working_directory_absolute_path="/tmp")
 
-        assert request.prompt == "Test"
-        assert request.absolute_file_paths == []  # Should default to empty list
-        assert request.images == []  # Should default to empty list
+        assert request["prompt"] == "Test"
+        # TypedDict with total=False: optional fields are absent when not provided
+        assert request.get("absolute_file_paths") is None
+        assert request.get("images") is None
 
     def test_inheritance(self):
-        """Test that ChatRequest properly inherits from ToolRequest"""
+        """Test that ChatRequest inherits from ToolRequest TypedDict"""
         from tools.shared.base_models import ToolRequest
 
+        # TypedDict creates dicts, so isinstance checks use dict
         request = ChatRequest(prompt="Test", working_directory_absolute_path="/tmp")
-        assert isinstance(request, ToolRequest)
+        assert isinstance(request, dict)
 
-        # Should have inherited fields
-        assert hasattr(request, "model")
-        assert hasattr(request, "temperature")
-        assert hasattr(request, "thinking_mode")
-        assert hasattr(request, "continuation_id")
-        assert hasattr(request, "images")  # From base model too
+        # Should have ToolRequest's annotations in the class hierarchy
+        assert "model" in ToolRequest.__annotations__
+        # TypedDict annotations are on the class, not dict instances
+        assert "temperature" in ToolRequest.__annotations__
+        assert "thinking_mode" in ToolRequest.__annotations__
+        assert "continuation_id" in ToolRequest.__annotations__
+        assert "images" in ToolRequest.__annotations__
 
 
 if __name__ == "__main__":

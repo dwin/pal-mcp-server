@@ -5,11 +5,9 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-from pydantic import Field
-
 from config import TEMPERATURE_ANALYTICAL
 from tools.shared.base_models import ToolRequest
-from tools.simple.base import SimpleTool
+from tools.shared.base_tool import BaseTool
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
@@ -20,8 +18,8 @@ LOOKUP_FIELD_DESCRIPTIONS = {
 }
 
 
-class LookupRequest(ToolRequest):
-    prompt: str = Field(..., description=LOOKUP_FIELD_DESCRIPTIONS["prompt"])
+class LookupRequest(ToolRequest, total=False):
+    prompt: str
 
 
 LOOKUP_PROMPT = """
@@ -67,7 +65,7 @@ SEARCH STRATEGY (MAXIMUM 2-4 SEARCHES TOTAL FOR THIS MISSION - THEN STOP):
 """.strip()
 
 
-class LookupTool(SimpleTool):
+class LookupTool(BaseTool):
     """Simple tool that wraps user queries with API lookup instructions."""
 
     def get_name(self) -> str:
@@ -126,6 +124,6 @@ class LookupTool(SimpleTool):
         response = {
             "status": "web_lookup_needed",
             "instructions": LOOKUP_PROMPT,
-            "user_prompt": request.prompt,
+            "user_prompt": self._get_field(request, "prompt"),
         }
         return [TextContent(type="text", text=json.dumps(response, ensure_ascii=False, indent=2))]
