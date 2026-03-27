@@ -49,6 +49,17 @@ def _find_python() -> str:
     return sys.executable
 
 
+def _validate_test_names(names: list[str]) -> None:
+    """Fail fast if any requested test names don't exist in the registry."""
+    from simulator_tests import TEST_REGISTRY
+
+    unknown = [n for n in names if n not in TEST_REGISTRY]
+    if unknown:
+        print(f"ERROR: Unknown test(s): {', '.join(unknown)}", file=sys.stderr)
+        print("Run with --list-tests to see available tests.", file=sys.stderr)
+        sys.exit(1)
+
+
 def _build_pytest_args(args) -> list[str]:
     """Build the pytest command-line from parsed arguments."""
     python = _find_python()
@@ -65,9 +76,11 @@ def _build_pytest_args(args) -> list[str]:
     if args.quick:
         cmd.extend(["-m", "quick"])
     elif args.individual:
-        cmd.extend(["-k", args.individual])
+        _validate_test_names([args.individual])
+        cmd.extend(["-k", f"test_{args.individual}"])
     elif args.tests:
-        expr = " or ".join(args.tests)
+        _validate_test_names(args.tests)
+        expr = " or ".join(f"test_{t}" for t in args.tests)
         cmd.extend(["-k", expr])
 
     # Always show short tracebacks for readability
