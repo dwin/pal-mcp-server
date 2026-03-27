@@ -2,13 +2,40 @@
 Tests for the main server functionality
 """
 
+import signal
+
 import pytest
 
+import server
 from server import handle_call_tool
 
 
 class TestServerTools:
     """Test server tool handling"""
+
+    def test_register_signal_handlers(self, monkeypatch):
+        """Test graceful shutdown and SIGPIPE handlers are registered."""
+        registered_handlers = {}
+
+        def fake_signal(sig, handler):
+            registered_handlers[sig] = handler
+
+        monkeypatch.setattr(signal, "signal", fake_signal)
+
+        server.register_signal_handlers()
+
+        assert registered_handlers[signal.SIGTERM] is server.shutdown_handler
+        assert registered_handlers[signal.SIGINT] is server.shutdown_handler
+        if hasattr(signal, "SIGPIPE"):
+            assert registered_handlers[signal.SIGPIPE] == signal.SIG_IGN
+
+    def test_shutdown_handler_raises_keyboard_interrupt(self, caplog):
+        """Test shutdown signals trigger graceful interruption."""
+        with caplog.at_level("INFO"):
+            with pytest.raises(KeyboardInterrupt):
+                server.shutdown_handler(signal.SIGTERM, None)
+
+        assert "Received SIGTERM; starting graceful shutdown" in caplog.text
 
     @pytest.mark.asyncio
     async def test_handle_call_tool_unknown(self):
