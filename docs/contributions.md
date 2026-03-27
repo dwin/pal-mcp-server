@@ -222,7 +222,7 @@ isort .
 
 ### Import Errors
 - Verify virtual environment is activated
-- Check all dependencies are installed: `pip install -r requirements.txt`
+- Check all dependencies are installed: `uv sync`
 
 ## Getting Help
 

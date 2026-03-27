@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import shlex
+import subprocess
+import time
 from collections.abc import Iterable
 from pathlib import Path
+from typing import ClassVar
 
 from clink.constants import (
     CONFIG_DIR,
@@ -19,6 +22,7 @@ from clink.constants import (
 from clink.models import (
     CLIClientConfig,
     CLIRoleConfig,
+    DynamicModelDiscoveryConfig,
     ResolvedCLIClient,
     ResolvedCLIRole,
 )
@@ -36,6 +40,9 @@ class RegistryLoadError(RuntimeError):
 
 class ClinkRegistry:
     """Loads CLI client definitions and exposes them for schema generation/runtime use."""
+
+    # Class-level cache for dynamically discovered models: {cli_name: (models, timestamp)}
+    _model_cache: ClassVar[dict[str, tuple[list[str], float]]] = {}
 
     def __init__(self) -> None:
         self._clients: dict[str, ResolvedCLIClient] = {}
@@ -85,6 +92,119 @@ class ClinkRegistry:
             available = ", ".join(self.list_clients())
             raise KeyError(f"CLI '{cli_name}' is not configured. Available clients: {available}")
         return self._clients[key]
+
+    def list_models(self, cli_name: str) -> list[str] | None:
+        """Return available models for a CLI client.
+
+        Returns static models if configured, otherwise attempts dynamic discovery.
+        Returns None if model selection is not configured for this CLI.
+        """
+        client = self.get_client(cli_name)
+        if client.models_config is None:
+            return None
+
+        # Static models take precedence
+        if client.models_config.models:
+            return client.models_config.models
+
+        # Dynamic discovery
+        if client.models_config.dynamic_discovery:
+            return self._discover_models(cli_name, client.models_config.dynamic_discovery)
+
+        return None
+
+    def _discover_models(
+        self,
+        cli_name: str,
+        config: DynamicModelDiscoveryConfig,
+    ) -> list[str] | None:
+        """Execute discovery command and parse results with caching."""
+        cache_key = cli_name.lower()
+        now = time.time()
+
+        # Check cache
+        if cache_key in self._model_cache:
+            models, timestamp = self._model_cache[cache_key]
+            if now - timestamp < config.cache_ttl_seconds:
+                logger.debug("Using cached models for CLI '%s' (age: %.0fs)", cli_name, now - timestamp)
+                return models
+
+        # Execute discovery command
+        try:
+            logger.debug("Discovering models for CLI '%s' via: %s", cli_name, config.command)
+            result = subprocess.run(
+                shlex.split(config.command),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                logger.warning(
+                    "Model discovery failed for CLI '%s' (exit %d): %s",
+                    cli_name,
+                    result.returncode,
+                    result.stderr.strip(),
+                )
+                return None
+
+            models = self._parse_model_output(result.stdout, config.parser)
+            self._model_cache[cache_key] = (models, now)
+            logger.debug("Discovered %d models for CLI '%s': %s", len(models), cli_name, models)
+            return models
+        except subprocess.TimeoutExpired:
+            logger.warning("Model discovery timed out for CLI '%s'", cli_name)
+            return None
+        except Exception as exc:
+            logger.warning("Model discovery error for CLI '%s': %s", cli_name, exc)
+            return None
+
+    def _parse_model_output(self, output: str, parser: str) -> list[str]:
+        """Parse model list output based on parser type."""
+        import re
+
+        if parser == "line_per_model":
+            return [line.strip() for line in output.splitlines() if line.strip()]
+        elif parser == "json_array":
+            import json as json_module
+
+            return json_module.loads(output)
+        elif parser == "cursor_models":
+            # Parse cursor agent --list-models output format:
+            # "model-id - Model Description"
+            # Skip lines with ANSI codes, headers, and tips
+            models = []
+            # Remove ANSI escape codes first
+            ansi_escape = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+            clean_output = ansi_escape.sub("", output)
+
+            for line in clean_output.splitlines():
+                line = line.strip()
+                # Skip empty lines, headers, and tips
+                if not line or line.startswith("Tip:") or line.startswith("Available") or line.startswith("Loading"):
+                    continue
+                # Extract model ID from "model-id - Description" format
+                if " - " in line:
+                    model_id = line.split(" - ", 1)[0].strip()
+                    if model_id and not model_id.startswith("["):
+                        models.append(model_id)
+            return models
+        else:
+            raise ValueError(f"Unknown model parser: {parser}")
+
+    def clear_model_cache(self, cli_name: str | None = None) -> None:
+        """Clear cached model discovery results.
+
+        Args:
+            cli_name: Clear cache for a specific CLI, or all if None.
+        """
+        if cli_name is None:
+            self._model_cache.clear()
+            logger.debug("Cleared all model discovery caches")
+        else:
+            key = cli_name.lower()
+            if key in self._model_cache:
+                del self._model_cache[key]
+                logger.debug("Cleared model discovery cache for CLI '%s'", cli_name)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -139,6 +259,12 @@ class ClinkRegistry:
         internal_args = list(internal_defaults.additional_args) if internal_defaults else []
         config_args = list(raw.additional_args)
 
+        # If models_config is defined, strip any hardcoded model flags from config_args
+        # This allows models_config to take control of model selection
+        models_config = raw.models_config
+        if models_config and models_config.flag:
+            config_args = self._strip_model_args(config_args, models_config.flag)
+
         timeout_seconds = raw.timeout_seconds or (
             internal_defaults.timeout_seconds if internal_defaults else DEFAULT_TIMEOUT_SECONDS
         )
@@ -169,6 +295,7 @@ class ClinkRegistry:
             roles=roles,
             output_to_file=output_to_file,
             working_dir=working_dir,
+            models_config=models_config,
         )
 
     def _resolve_executable(
@@ -192,6 +319,27 @@ class ClinkRegistry:
             merged.update(internal_defaults.env)
         merged.update(raw.env)
         return merged
+
+    def _strip_model_args(self, args: list[str], flag: str) -> list[str]:
+        """Remove existing model flag and its value from args list.
+
+        Handles both "--flag value" and "--flag=value" formats.
+        """
+        result = []
+        skip_next = False
+        for arg in args:
+            if skip_next:
+                skip_next = False
+                continue
+            if arg == flag:
+                # Next arg is the value, skip it too
+                skip_next = True
+                continue
+            if arg.startswith(f"{flag}="):
+                # Combined format like --model=opus
+                continue
+            result.append(arg)
+        return result
 
     def _resolve_roles(
         self,

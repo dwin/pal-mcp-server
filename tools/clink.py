@@ -38,6 +38,10 @@ class CLinkRequest(BaseModel):
         default=None,
         description="Optional role preset defined in the CLI configuration (defaults to 'default').",
     )
+    model: str | None = Field(
+        default=None,
+        description="Model to use for this CLI invocation. If not specified, uses the CLI's default model.",
+    )
     absolute_file_paths: list[str] = Field(
         default_factory=list,
         description=COMMON_FIELD_DESCRIPTIONS["absolute_file_paths"],
@@ -49,6 +53,13 @@ class CLinkRequest(BaseModel):
     continuation_id: str | None = Field(
         default=None,
         description=COMMON_FIELD_DESCRIPTIONS["continuation_id"],
+    )
+    cli_session_id: str | None = Field(
+        default=None,
+        description=(
+            "Session ID from a previous clink response to resume that CLI session. "
+            "Uses the CLI's native --resume capability for conversation continuity within that CLI."
+        ),
     )
 
 
@@ -66,6 +77,10 @@ class CLinkTool(SimpleTool):
         self._cli_names = self._registry.list_clients()
         self._role_map: dict[str, list[str]] = {name: self._registry.list_roles(name) for name in self._cli_names}
         self._all_roles: list[str] = sorted({role for roles in self._role_map.values() for role in roles})
+        # Cache model info per CLI for schema generation
+        self._model_map: dict[str, list[str] | None] = {
+            name: self._registry.list_models(name) for name in self._cli_names
+        }
         if "gemini" in self._cli_names:
             self._default_cli_name = "gemini"
         else:
@@ -83,7 +98,7 @@ class CLinkTool(SimpleTool):
         )
 
     def get_annotations(self) -> dict[str, Any]:
-        return {"readOnlyHint": True}
+        return {"readOnlyHint": False}
 
     def requires_model(self) -> bool:
         return False
@@ -125,6 +140,21 @@ class CLinkTool(SimpleTool):
             cli_description = "Configured CLI client name (from conf/cli_clients)."
             role_description = "Optional role preset defined for the selected CLI (defaults to 'default')."
 
+        # Build model description with per-CLI breakdown (for reference, not validation)
+        model_descriptions = []
+        for name in self._cli_names:
+            models = self._model_map.get(name)
+            if models:
+                model_descriptions.append(f"{name}: {', '.join(models)}")
+
+        if model_descriptions:
+            model_description = (
+                "Model to use for this CLI invocation. If not specified, uses the CLI's default. "
+                "Example models per CLI (use clink_listmodels for current list): " + "; ".join(model_descriptions)
+            )
+        else:
+            model_description = "Model to use for this CLI invocation (if supported by the CLI)."
+
         properties = {
             "prompt": {
                 "type": "string",
@@ -140,9 +170,20 @@ class CLinkTool(SimpleTool):
                 "enum": self._all_roles or ["default"],
                 "description": role_description,
             },
+            "model": {
+                "type": "string",
+                "description": model_description,
+            },
             "absolute_file_paths": SchemaBuilder.SIMPLE_FIELD_SCHEMAS["absolute_file_paths"],
             "images": SchemaBuilder.COMMON_FIELD_SCHEMAS["images"],
             "continuation_id": SchemaBuilder.COMMON_FIELD_SCHEMAS["continuation_id"],
+            "cli_session_id": {
+                "type": "string",
+                "description": (
+                    "Session ID from a previous clink response to resume that CLI session. "
+                    "Uses the CLI's native --resume capability."
+                ),
+            },
         }
 
         schema = {
@@ -183,6 +224,10 @@ class CLinkTool(SimpleTool):
         except KeyError as exc:
             self._raise_tool_error(str(exc))
 
+        # Pass model through to agent - let the CLI validate if model exists
+        # This avoids issues with out-of-date model lists
+        requested_model = request.model
+
         absolute_file_paths = self.get_request_files(request)
         images = self.get_request_images(request)
         continuation_id = self.get_request_continuation_id(request)
@@ -203,6 +248,9 @@ class CLinkTool(SimpleTool):
             logger.exception("Failed to prepare clink prompt")
             self._raise_tool_error(f"Failed to prepare prompt: {exc}")
 
+        # Get cli_session_id from request for session resumption
+        cli_session_id = request.cli_session_id if request.cli_session_id else None
+
         agent = create_agent(client_config)
         try:
             result = await agent.run(
@@ -211,6 +259,8 @@ class CLinkTool(SimpleTool):
                 system_prompt=system_prompt_text if system_prompt_text.strip() else None,
                 files=absolute_file_paths,
                 images=images,
+                cli_session_id=cli_session_id,
+                model=requested_model,
             )
         except CLIAgentError as exc:
             metadata = self._build_error_metadata(client_config, exc)
@@ -221,6 +271,11 @@ class CLinkTool(SimpleTool):
 
         metadata = self._build_success_metadata(client_config, role_config, result)
         metadata = self._prune_metadata(metadata, client_config, reason="normal")
+
+        # Ensure cli_session_id is prominently available for session resumption
+        # session_id comes from the parser, normalize to cli_session_id
+        if "session_id" in result.parsed.metadata:
+            metadata["cli_session_id"] = result.parsed.metadata["session_id"]
 
         content, metadata = self._apply_output_limit(
             client_config,

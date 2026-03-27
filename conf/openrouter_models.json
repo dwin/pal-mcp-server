@@ -25,79 +25,6 @@
   },
   "models": [
     {
-      "model_name": "anthropic/claude-opus-4.5",
-      "aliases": [
-        "opus",
-        "opus4.5",
-        "claude-opus"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 64000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": false,
-      "supports_function_calling": false,
-      "supports_images": true,
-      "max_image_size_mb": 5.0,
-      "description": "Claude Opus 4.5 - Anthropic's frontier reasoning model for complex software engineering and agentic workflows",
-      "intelligence_score": 18
-    },
-    {
-      "model_name": "anthropic/claude-sonnet-4.5",
-      "aliases": [
-        "sonnet",
-        "sonnet4.5",
-        "claude-sonnet"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 64000,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "allow_code_generation": true,
-      "max_image_size_mb": 5.0,
-      "description": "Claude Sonnet 4.5 - High-performance model with exceptional reasoning and efficiency",
-      "intelligence_score": 15
-    },
-    {
-      "model_name": "anthropic/claude-opus-4.5",
-      "aliases": [
-        "opus4.5",
-        "claude-opus-4.5",
-        "opus-4.5"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 64000,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 5.0,
-      "allow_code_generation": true,
-      "supports_temperature": true,
-      "description": "Claude Opus 4.5 - Frontier reasoning model optimized for complex software engineering with controllable verbosity",
-      "intelligence_score": 18
-    },
-    {
-      "model_name": "anthropic/claude-haiku-4.5",
-      "aliases": [
-        "haiku",
-        "haiku4.5",
-        "claude-haiku"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 64000,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "allow_code_generation": true,
-      "supports_images": true,
-      "max_image_size_mb": 5.0,
-      "supports_temperature": true,
-      "description": "Claude Haiku 4.5 - Fastest and most efficient Claude model with near-frontier intelligence",
-      "intelligence_score": 13
-    },
-    {
       "model_name": "google/gemini-3.1-pro-preview",
       "aliases": [
         "gemini-3.1-pro",
@@ -121,149 +48,31 @@
       "intelligence_score": 19
     },
     {
-      "model_name": "google/gemini-3-pro-preview",
+      "model_name": "anthropic/claude-opus-4.6",
       "aliases": [
-        "gemini3",
-        "gemini-3-pro"
+        "opus",
+        "opus4.6",
+        "claude-opus"
       ],
-      "context_window": 1048576,
-      "max_output_tokens": 65536,
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
       "supports_extended_thinking": true,
       "supports_json_mode": true,
       "supports_function_calling": true,
       "supports_images": true,
-      "max_image_size_mb": 20.0,
+      "max_image_size_mb": 5.0,
       "allow_code_generation": true,
-      "description": "Gemini 3.0 Pro (1M context) - Prefer gemini-3.1-pro-preview for improved reasoning and agentic capabilities.",
-      "intelligence_score": 18
+      "supports_temperature": true,
+      "description": "Claude Opus 4.6 - Frontier reasoning model with 1M context for complex software engineering and agentic workflows",
+      "intelligence_score": 19
     },
     {
-      "model_name": "google/gemini-3-flash-preview",
+      "model_name": "openai/gpt-5.4",
       "aliases": [
-        "flash",
-        "gemini-flash"
+        "gpt5.4",
+        "gpt-5.4"
       ],
-      "context_window": 1048576,
-      "max_output_tokens": 65536,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 15.0,
-      "description": "Gemini 3.0 Flash (1M context) - High-speed model. No 3.1 Flash yet; still the recommended flash-tier model.",
-      "intelligence_score": 15
-    },
-    {
-      "model_name": "perplexity/llama-3-sonar-large-32k-online",
-      "aliases": [
-        "perplexity",
-        "sonar",
-        "perplexity-online"
-      ],
-      "context_window": 32768,
-      "max_output_tokens": 32768,
-      "supports_extended_thinking": false,
-      "supports_json_mode": false,
-      "supports_function_calling": false,
-      "supports_images": false,
-      "max_image_size_mb": 0.0,
-      "description": "Perplexity's online model with web search (text-only)",
-      "intelligence_score": 9
-    },
-    {
-      "model_name": "openai/o3",
-      "aliases": [
-        "o3"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 100000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 20.0,
-      "supports_temperature": false,
-      "temperature_constraint": "fixed",
-      "description": "OpenAI's o3 model - well-rounded and powerful across domains with vision",
-      "intelligence_score": 14
-    },
-    {
-      "model_name": "openai/o3-mini",
-      "aliases": [
-        "o3-mini",
-        "o3mini"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 100000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 20.0,
-      "supports_temperature": false,
-      "temperature_constraint": "fixed",
-      "description": "OpenAI's o3-mini model - balanced performance and speed with vision",
-      "intelligence_score": 12
-    },
-    {
-      "model_name": "openai/o3-mini-high",
-      "aliases": [
-        "o3-mini-high",
-        "o3mini-high"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 100000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 20.0,
-      "supports_temperature": false,
-      "temperature_constraint": "fixed",
-      "description": "OpenAI's o3-mini with high reasoning effort - optimized for complex problems with vision",
-      "intelligence_score": 13
-    },
-    {
-      "model_name": "openai/o3-pro",
-      "aliases": [
-        "o3pro"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 100000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 20.0,
-      "supports_temperature": false,
-      "temperature_constraint": "fixed",
-      "description": "OpenAI's o3-pro model - professional-grade reasoning and analysis with vision",
-      "intelligence_score": 15
-    },
-    {
-      "model_name": "openai/o4-mini",
-      "aliases": [
-        "o4-mini",
-        "o4mini"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 100000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 20.0,
-      "supports_temperature": false,
-      "temperature_constraint": "fixed",
-      "description": "OpenAI's o4-mini model - optimized for shorter contexts with rapid reasoning and vision",
-      "intelligence_score": 11
-    },
-    {
-      "model_name": "openai/gpt-5",
-      "aliases": [
-        "gpt5"
-      ],
-      "context_window": 400000,
+      "context_window": 272000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
       "supports_json_mode": true,
@@ -271,9 +80,11 @@
       "supports_images": true,
       "max_image_size_mb": 20.0,
       "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "GPT-5 (400K context, 128K output) - Advanced model with reasoning support",
-      "intelligence_score": 16
+      "temperature_constraint": "fixed",
+      "default_reasoning_effort": "medium",
+      "allow_code_generation": true,
+      "description": "GPT-5.4 (272K context, 128K output) - Flagship model with native computer use, vision, and built-in coding capabilities",
+      "intelligence_score": 19
     },
     {
       "model_name": "openai/gpt-5.2-pro",
@@ -298,53 +109,21 @@
       "intelligence_score": 18
     },
     {
-      "model_name": "openai/gpt-5-codex",
+      "model_name": "google/gemini-3-pro-preview",
       "aliases": [
-        "gpt5codex"
+        "gemini3",
+        "gemini-3-pro"
       ],
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": false,
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "supports_extended_thinking": true,
       "supports_json_mode": true,
-      "supports_function_calling": false,
-      "supports_images": false,
-      "max_image_size_mb": 0.0,
-      "description": "GPT-5-Codex - Legacy coding model. Prefer gpt-5.3-codex or gpt-5.3-codex-spark for newer capabilities.",
-      "intelligence_score": 17
-    },
-    {
-      "model_name": "openai/gpt-5-mini",
-      "aliases": [
-        "gpt5mini"
-      ],
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": true,
-      "supports_function_calling": false,
-      "supports_images": false,
-      "max_image_size_mb": 0.0,
-      "supports_temperature": true,
-      "temperature_constraint": "fixed",
-      "description": "GPT-5-mini (400K context, 128K output) - Efficient variant with reasoning support",
-      "intelligence_score": 10
-    },
-    {
-      "model_name": "openai/gpt-5-nano",
-      "aliases": [
-        "gpt5nano"
-      ],
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": true,
-      "supports_function_calling": false,
-      "supports_images": false,
-      "max_image_size_mb": 0.0,
-      "supports_temperature": true,
-      "temperature_constraint": "fixed",
-      "description": "GPT-5 nano (400K context, 128K output) - Fastest, cheapest version of GPT-5 for summarization and classification tasks",
-      "intelligence_score": 8
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "description": "Gemini 3.0 Pro (1M context) - Prefer gemini-3.1-pro-preview for improved reasoning and agentic capabilities.",
+      "intelligence_score": 18
     },
     {
       "model_name": "openai/gpt-5.2",
@@ -395,6 +174,41 @@
       "intelligence_score": 18
     },
     {
+      "model_name": "deepseek/deepseek-v3.2-speciale",
+      "aliases": [
+        "deepseek",
+        "deepseek-speciale",
+        "v3.2-speciale"
+      ],
+      "context_window": 163840,
+      "max_output_tokens": 65536,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "allow_code_generation": true,
+      "supports_images": false,
+      "max_image_size_mb": 0.0,
+      "supports_temperature": true,
+      "temperature_constraint": "range",
+      "description": "DeepSeek V3.2 Speciale - High-compute variant optimized for maximum reasoning performance",
+      "intelligence_score": 16
+    },
+    {
+      "model_name": "openai/gpt-5-codex",
+      "aliases": [
+        "gpt5codex"
+      ],
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": false,
+      "supports_images": false,
+      "max_image_size_mb": 0.0,
+      "description": "GPT-5-Codex - Legacy coding model. Prefer gpt-5.3-codex or gpt-5.4 for newer capabilities.",
+      "intelligence_score": 17
+    },
+    {
       "model_name": "openai/gpt-5.2-codex",
       "aliases": [
         "gpt5.2-codex",
@@ -418,44 +232,94 @@
       "intelligence_score": 17
     },
     {
-      "model_name": "x-ai/grok-4.1-fast",
+      "model_name": "anthropic/claude-sonnet-4.6",
       "aliases": [
-        "grok",
-        "grok-4.1",
-        "grok4.1",
-        "grok-fast"
+        "sonnet",
+        "sonnet4.6",
+        "claude-sonnet"
       ],
-      "context_window": 2000000,
-      "max_output_tokens": 30000,
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
       "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 5.0,
+      "supports_temperature": true,
+      "description": "Claude Sonnet 4.6 - High-performance model with 1M context, exceptional reasoning, and efficiency",
+      "intelligence_score": 16
+    },
+    {
+      "model_name": "mistralai/mistral-large-2512",
+      "aliases": [
+        "mistral-large",
+        "mistral",
+        "large-2512"
+      ],
+      "context_window": 262144,
+      "max_output_tokens": 65536,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "allow_code_generation": true,
+      "supports_images": true,
+      "max_image_size_mb": 10.0,
+      "supports_temperature": true,
+      "temperature_constraint": "range",
+      "description": "Mistral Large 3 2512 - Flagship 675B MoE model with vision and 256K context",
+      "intelligence_score": 15
+    },
+    {
+      "model_name": "google/gemini-3-flash-preview",
+      "aliases": [
+        "flash",
+        "gemini-flash"
+      ],
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 15.0,
+      "description": "Gemini 3.0 Flash (1M context) - High-speed model. No 3.1 Flash yet; still the recommended flash-tier model.",
+      "intelligence_score": 15
+    },
+    {
+      "model_name": "openai/gpt-5.4-mini",
+      "aliases": [
+        "gpt5.4-mini",
+        "gpt5.4mini"
+      ],
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": false,
       "supports_json_mode": true,
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 20.0,
       "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "xAI's Grok 4.1 Fast - Best agentic tool calling model with 2M context window",
-      "intelligence_score": 15
+      "temperature_constraint": "fixed",
+      "description": "GPT-5.4 mini (400K context, 128K output) - Fast and efficient GPT-5.4 variant for high-throughput workloads",
+      "intelligence_score": 14
     },
     {
-      "model_name": "z-ai/glm-4.6:exacto",
+      "model_name": "openai/o3",
       "aliases": [
-        "glm-4.6",
-        "glm",
-        "glm-exacto"
+        "o3"
       ],
-      "context_window": 202752,
-      "max_output_tokens": 202752,
-      "supports_extended_thinking": true,
+      "context_window": 200000,
+      "max_output_tokens": 100000,
+      "supports_extended_thinking": false,
       "supports_json_mode": true,
       "supports_function_calling": true,
-      "allow_code_generation": true,
-      "supports_images": false,
-      "max_image_size_mb": 0.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "Z.AI GLM 4.6 Exacto - Advanced reasoning with 200K+ context for agentic tasks",
-      "intelligence_score": 13
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "OpenAI's o3 model - well-rounded and powerful across domains with vision",
+      "intelligence_score": 14
     },
     {
       "model_name": "z-ai/glm-4.7",
@@ -475,64 +339,6 @@
       "temperature_constraint": "range",
       "description": "Z.AI GLM 4.7 - Flagship model with enhanced programming and stable multi-step reasoning (#8 in programming)",
       "intelligence_score": 14
-    },
-    {
-      "model_name": "z-ai/glm-4.7-flash",
-      "aliases": [
-        "glm-4.7-flash",
-        "glm-flash"
-      ],
-      "context_window": 200000,
-      "max_output_tokens": 131072,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "allow_code_generation": true,
-      "supports_images": true,
-      "max_image_size_mb": 20.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "Z.AI GLM 4.7 Flash - 30B SOTA model optimized for agentic coding with balanced performance and efficiency",
-      "intelligence_score": 13
-    },
-    {
-      "model_name": "deepseek/deepseek-v3.2-speciale",
-      "aliases": [
-        "deepseek",
-        "deepseek-speciale",
-        "v3.2-speciale"
-      ],
-      "context_window": 163840,
-      "max_output_tokens": 65536,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "allow_code_generation": true,
-      "supports_images": false,
-      "max_image_size_mb": 0.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "DeepSeek V3.2 Speciale - High-compute variant optimized for maximum reasoning performance",
-      "intelligence_score": 16
-    },
-    {
-      "model_name": "amazon/nova-2-lite-v1",
-      "aliases": [
-        "nova-lite",
-        "nova-2-lite",
-        "amazon-nova"
-      ],
-      "context_window": 1000000,
-      "max_output_tokens": 65535,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 10.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "Amazon Nova 2 Lite - Fast, cost-effective reasoning model with 1M context and multimodal support",
-      "intelligence_score": 11
     },
     {
       "model_name": "mistralai/devstral-2512",
@@ -555,23 +361,206 @@
       "intelligence_score": 14
     },
     {
-      "model_name": "mistralai/mistral-large-2512",
+      "model_name": "openai/o3-mini-high",
       "aliases": [
-        "mistral-large",
-        "mistral",
-        "large-2512"
+        "o3-mini-high",
+        "o3mini-high"
       ],
-      "context_window": 262144,
-      "max_output_tokens": 65536,
+      "context_window": 200000,
+      "max_output_tokens": 100000,
       "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "OpenAI's o3-mini with high reasoning effort - optimized for complex problems with vision",
+      "intelligence_score": 13
+    },
+    {
+      "model_name": "z-ai/glm-4.6:exacto",
+      "aliases": [
+        "glm-4.6",
+        "glm",
+        "glm-exacto"
+      ],
+      "context_window": 202752,
+      "max_output_tokens": 202752,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "allow_code_generation": true,
+      "supports_images": false,
+      "max_image_size_mb": 0.0,
+      "supports_temperature": true,
+      "temperature_constraint": "range",
+      "description": "Z.AI GLM 4.6 Exacto - Advanced reasoning with 200K+ context for agentic tasks",
+      "intelligence_score": 13
+    },
+    {
+      "model_name": "z-ai/glm-4.7-flash",
+      "aliases": [
+        "glm-4.7-flash",
+        "glm-flash"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": true,
       "supports_json_mode": true,
       "supports_function_calling": true,
       "allow_code_generation": true,
       "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": true,
+      "temperature_constraint": "range",
+      "description": "Z.AI GLM 4.7 Flash - 30B SOTA model optimized for agentic coding with balanced performance and efficiency",
+      "intelligence_score": 13
+    },
+    {
+      "model_name": "anthropic/claude-haiku-4.5",
+      "aliases": [
+        "haiku",
+        "haiku4.5",
+        "claude-haiku"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "allow_code_generation": true,
+      "supports_images": true,
+      "max_image_size_mb": 5.0,
+      "supports_temperature": true,
+      "description": "Claude Haiku 4.5 - Fastest and most efficient Claude model with near-frontier intelligence",
+      "intelligence_score": 13
+    },
+    {
+      "model_name": "openai/o3-mini",
+      "aliases": [
+        "o3-mini",
+        "o3mini"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 100000,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "OpenAI's o3-mini model - balanced performance and speed with vision",
+      "intelligence_score": 12
+    },
+    {
+      "model_name": "openai/o3-pro",
+      "aliases": [
+        "o3pro"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 100000,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "OpenAI's o3-pro model - professional-grade reasoning and analysis with vision",
+      "intelligence_score": 15
+    },
+    {
+      "model_name": "openai/o4-mini",
+      "aliases": [
+        "o4-mini",
+        "o4mini"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 100000,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "OpenAI's o4-mini model - optimized for shorter contexts with rapid reasoning and vision",
+      "intelligence_score": 11
+    },
+    {
+      "model_name": "amazon/nova-2-lite-v1",
+      "aliases": [
+        "nova-lite",
+        "nova-2-lite",
+        "amazon-nova"
+      ],
+      "context_window": 1000000,
+      "max_output_tokens": 65535,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
       "max_image_size_mb": 10.0,
       "supports_temperature": true,
       "temperature_constraint": "range",
-      "description": "Mistral Large 3 2512 - Flagship 675B MoE model with vision and 256K context",
+      "description": "Amazon Nova 2 Lite - Fast, cost-effective reasoning model with 1M context and multimodal support",
+      "intelligence_score": 11
+    },
+    {
+      "model_name": "openai/gpt-5.4-nano",
+      "aliases": [
+        "gpt5.4-nano",
+        "gpt5.4nano"
+      ],
+      "context_window": 400000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": true,
+      "temperature_constraint": "fixed",
+      "description": "GPT-5.4 nano (400K context, 128K output) - Smallest and cheapest GPT-5.4 for classification and high-volume tasks",
+      "intelligence_score": 10
+    },
+    {
+      "model_name": "perplexity/llama-3-sonar-large-32k-online",
+      "aliases": [
+        "perplexity",
+        "sonar",
+        "perplexity-online"
+      ],
+      "context_window": 32768,
+      "max_output_tokens": 32768,
+      "supports_extended_thinking": false,
+      "supports_json_mode": false,
+      "supports_function_calling": false,
+      "supports_images": false,
+      "max_image_size_mb": 0.0,
+      "description": "Perplexity's online model with web search (text-only)",
+      "intelligence_score": 9
+    },
+    {
+      "model_name": "x-ai/grok-4.1-fast",
+      "aliases": [
+        "grok",
+        "grok-4.1",
+        "grok4.1",
+        "grok-fast"
+      ],
+      "context_window": 2000000,
+      "max_output_tokens": 30000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": true,
+      "temperature_constraint": "range",
+      "description": "xAI's Grok 4.1 Fast - Best agentic tool calling model with 2M context window",
       "intelligence_score": 15
     },
     {

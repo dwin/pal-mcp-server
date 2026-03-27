@@ -60,12 +60,16 @@ class BaseCLIAgent:
         system_prompt: str | None = None,
         files: Sequence[str],
         images: Sequence[str],
+        cli_session_id: str | None = None,
+        model: str | None = None,
     ) -> AgentOutput:
         # Files and images are already embedded into the prompt by the tool; they are
         # accepted here only to keep parity with SimpleTool callers.
         _ = (files, images)
         # The runner simply executes the configured CLI command for the selected role.
-        command = self._build_command(role=role, system_prompt=system_prompt)
+        command = self._build_command(
+            role=role, system_prompt=system_prompt, cli_session_id=cli_session_id, model=model
+        )
         env = self._build_environment()
 
         # Resolve executable path for cross-platform compatibility (especially Windows)
@@ -190,11 +194,56 @@ class BaseCLIAgent:
             output_file_content=output_file_content,
         )
 
-    def _build_command(self, *, role: ResolvedCLIRole, system_prompt: str | None) -> list[str]:
+    def _build_command(
+        self,
+        *,
+        role: ResolvedCLIRole,
+        system_prompt: str | None,
+        cli_session_id: str | None = None,
+        model: str | None = None,
+    ) -> list[str]:
         base = list(self.client.executable)
         base.extend(self.client.internal_args)
         base.extend(self.client.config_args)
+
+        # Inject model flag if specified or use default from models_config
+        effective_model = model
+        if effective_model is None and self.client.models_config:
+            effective_model = self.client.models_config.default
+
+        if effective_model and self.client.models_config:
+            base.extend([self.client.models_config.flag, effective_model])
+
         base.extend(role.role_args)
+
+        # Add resume flag if session ID provided
+        if cli_session_id:
+            from clink.constants import RESUME_CONFIG
+
+            runner_name = (self.client.runner or self.client.name).lower()
+            resume_config = RESUME_CONFIG.get(runner_name)
+
+            if resume_config:
+                if resume_config.style == "flag":
+                    # Standard flag style: --resume <id>
+                    base.extend([resume_config.flag, cli_session_id])
+                elif resume_config.style == "subcommand":
+                    # Subcommand style: insert "resume <id>" after a specific arg
+                    if resume_config.insert_position.startswith("after:"):
+                        after_arg = resume_config.insert_position.split(":", 1)[1]
+                        try:
+                            idx = base.index(after_arg) + 1
+                            base.insert(idx, resume_config.flag)
+                            base.insert(idx + 1, cli_session_id)
+                        except ValueError:
+                            # Arg not found, append instead
+                            self._logger.warning(
+                                "Resume insert position '%s' not found in command, appending",
+                                after_arg,
+                            )
+                            base.extend([resume_config.flag, cli_session_id])
+                    else:
+                        base.extend([resume_config.flag, cli_session_id])
 
         return base
 

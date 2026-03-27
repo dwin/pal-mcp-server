@@ -51,6 +51,7 @@ from tools import (  # noqa: E402
     AnalyzeTool,
     ChallengeTool,
     ChatTool,
+    ClinkListModelsTool,
     CLinkTool,
     CodeReviewTool,
     ConsensusTool,
@@ -276,6 +277,7 @@ TOOLS = {
     "challenge": ChallengeTool(),  # Critical challenge prompt wrapper to avoid automatic agreement
     "apilookup": LookupTool(),  # Quick web/API lookup instructions
     "listmodels": ListModelsTool(),  # List all available AI models by provider
+    "clink_listmodels": ClinkListModelsTool(),  # List available models for clink CLI clients
     "version": VersionTool(),  # Display server version and system information
 }
 TOOLS = filter_disabled_tools(TOOLS)

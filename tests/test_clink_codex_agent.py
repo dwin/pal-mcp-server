@@ -52,17 +52,22 @@ async def _run_agent_with_process(monkeypatch, agent, role, process):
 
 @pytest.mark.asyncio
 async def test_codex_agent_recovers_jsonl(monkeypatch, codex_agent):
+    """Test Codex agent recovery with JSONL output (codex-cli 0.91.0 format)."""
     agent, role = codex_agent
-    stdout = b"""
+    # Real output format from codex-cli 0.91.0
+    stdout = b"""{"type":"thread.started","thread_id":"019c0cf5-ee41-7b41-8cfb-9669a8dedf99"}
+{"type":"turn.started"}
 {"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"Hello from Codex"}}
-{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}
+{"type":"turn.completed","usage":{"input_tokens":21688,"cached_input_tokens":4608,"output_tokens":19}}
 """
     process = DummyProcess(stdout=stdout, returncode=124)
     result = await _run_agent_with_process(monkeypatch, agent, role, process)
 
     assert result.returncode == 124
     assert "Hello from Codex" in result.parsed.content
-    assert result.parsed.metadata["usage"]["output_tokens"] == 5
+    assert result.parsed.metadata["usage"]["output_tokens"] == 19
+    # Session ID should be extracted from thread_id
+    assert result.parsed.metadata["session_id"] == "019c0cf5-ee41-7b41-8cfb-9669a8dedf99"
 
 
 @pytest.mark.asyncio

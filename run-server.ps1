@@ -336,360 +336,66 @@ function Get-AbsolutePath {
     }
 }
 
-# Check Python version
-function Test-PythonVersion {
-    param([string]$PythonCmd)
+
+# Ensure uv is installed
+function Ensure-Uv {
+    if (Get-Command "uv" -ErrorAction SilentlyContinue) {
+        return $true
+    }
+    
+    Write-Info "uv not found. Installing uv..."
     try {
-        $version = & $PythonCmd --version 2>&1
-        if ($version -match "Python (\d+)\.(\d+)") {
-            $major = [int]$matches[1]
-            $minor = [int]$matches[2]
-            return ($major -gt 3) -or ($major -eq 3 -and $minor -ge 10)
+        # Using powershell installer from astral
+        powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+        
+        # Add to path for current session
+        $env:Path += ";$env:USERPROFILE\.cargo\bin"
+        
+        if (Get-Command "uv" -ErrorAction SilentlyContinue) {
+            return $true
         }
-        return $false
+        else {
+            Write-Error "uv installation failed or not in PATH."
+            return $false
+        }
     }
     catch {
+        Write-Error "Failed to install uv: $_"
         return $false
     }
 }
 
-# Find Python installation
-function Find-Python {
-    $pythonCandidates = @("python", "python3", "py")
-    
-    foreach ($cmd in $pythonCandidates) {
-        if (Test-Command $cmd) {
-            if (Test-PythonVersion $cmd) {
-                $version = & $cmd --version 2>&1
-                Write-Success "Found Python: $version"
-                return $cmd
-            }
-        }
-    }
-    
-    # Try Windows Python Launcher with specific versions
-    $pythonVersions = @("3.12", "3.11", "3.10", "3.9")
-    foreach ($version in $pythonVersions) {
-        $cmd = "py -$version"
-        try {
-            $null = Invoke-Expression "$cmd --version" 2>$null
-            Write-Success "Found Python via py launcher: $cmd"
-            return $cmd
-        }
-        catch {
-            continue
-        }
-    }
-    
-    Write-Error "Python 3.10+ not found. Please install Python from https://python.org"
-    return $null
-}
-
-# Clean up old Docker artifacts
-function Cleanup-Docker {
-    if (Test-Path $DOCKER_CLEANED_FLAG) {
-        return
-    }
-    
-    if (!(Test-Command "docker")) {
-        return
-    }
-    
-    try {
-        $null = docker info 2>$null
-    }
-    catch {
-        return
-    }
-    
-    $foundArtifacts = $false
-    
-    # Define containers to remove
-    $containers = @(
-        "gemini-mcp-server",
-        "gemini-mcp-redis", 
-        "pal-mcp-server",
-        "pal-mcp-redis",
-        "pal-mcp-log-monitor"
-    )
-    
-    # Remove containers
-    foreach ($container in $containers) {
-        try {
-            $exists = docker ps -a --format "{{.Names}}" | Where-Object { $_ -eq $container }
-            if ($exists) {
-                if (!$foundArtifacts) {
-                    Write-Info "One-time Docker cleanup..."
-                    $foundArtifacts = $true
-                }
-                Write-Info "  Removing container: $container"
-                docker stop $container 2>$null | Out-Null
-                docker rm $container 2>$null | Out-Null
-            }
-        }
-        catch {
-            # Ignore errors
-        }
-    }
-    
-    # Remove images
-    $images = @("gemini-mcp-server:latest", "pal-mcp-server:latest")
-    foreach ($image in $images) {
-        try {
-            $exists = docker images --format "{{.Repository}}:{{.Tag}}" | Where-Object { $_ -eq $image }
-            if ($exists) {
-                if (!$foundArtifacts) {
-                    Write-Info "One-time Docker cleanup..."
-                    $foundArtifacts = $true
-                }
-                Write-Info "  Removing image: $image"
-                docker rmi $image 2>$null | Out-Null
-            }
-        }
-        catch {
-            # Ignore errors
-        }
-    }
-    
-    # Remove volumes
-    $volumes = @("redis_data", "mcp_logs")
-    foreach ($volume in $volumes) {
-        try {
-            $exists = docker volume ls --format "{{.Name}}" | Where-Object { $_ -eq $volume }
-            if ($exists) {
-                if (!$foundArtifacts) {
-                    Write-Info "One-time Docker cleanup..."
-                    $foundArtifacts = $true
-                }
-                Write-Info "  Removing volume: $volume"
-                docker volume rm $volume 2>$null | Out-Null
-            }
-        }
-        catch {
-            # Ignore errors
-        }
-    }
-    
-    if ($foundArtifacts) {
-        Write-Success "Docker cleanup complete"
-    }
-    
-    New-Item -Path $DOCKER_CLEANED_FLAG -ItemType File -Force | Out-Null
-}
-
-# Validate API keys
-function Test-ApiKeys {
-    Write-Step "Validating API Keys"
-    
-    if (!(Test-Path ".env")) {
-        Write-Warning "No .env file found. API keys should be configured."
-        return $false
-    }
-    
-    $envContent = Get-Content ".env"
-    $hasValidKey = $false
-    
-    $keyPatterns = @{
-        "GEMINI_API_KEY"     = "AIza[0-9A-Za-z-_]{35}"
-        "OPENAI_API_KEY"     = "sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}"
-        "XAI_API_KEY"        = "xai-[a-zA-Z0-9-_]+"
-        "OPENROUTER_API_KEY" = "sk-or-[a-zA-Z0-9-_]+"
-    }
-    
-    foreach ($line in $envContent) {
-        if ($line -match '^([^#][^=]*?)=(.*)$') {
-            $key = $matches[1].Trim()
-            $value = $matches[2].Trim() -replace '^["'']|["'']$', ''
-            
-            if ($keyPatterns.ContainsKey($key) -and $value -ne "your_${key.ToLower()}_here" -and $value.Length -gt 10) {
-                Write-Success "Found valid $key"
-                $hasValidKey = $true
-            }
-        }
-    }
-    
-    if (!$hasValidKey) {
-        Write-Warning "No valid API keys found in .env file"
-        Write-Info "Please edit .env file with your actual API keys"
-        return $false
-    }
-    
-    return $true
-}
-
-# Check if uv is available
-function Test-Uv {
-    return Test-Command "uv"
-}
-
-# Setup environment using uv-first approach
+# Setup environment using uv
 function Initialize-Environment {
     Write-Step "Setting up Python Environment"
     
-    # Try uv first for faster package management
-    if (Test-Uv) {
-        Write-Info "Using uv for faster package management..."
-        
-        if (Test-Path $VENV_PATH) {
-            if ($Force) {
-                Write-Warning "Removing existing environment..."
-                Remove-Item -Recurse -Force $VENV_PATH
-            }
-            else {
-                Write-Success "Virtual environment already exists"
-                $pythonPath = "$VENV_PATH\Scripts\python.exe"
-                if (Test-Path $pythonPath) {
-                    return Get-AbsolutePath $pythonPath
-                }
-            }
-        }
-        
-        try {
-            Write-Info "Creating virtual environment with uv..."
-            uv venv $VENV_PATH --python 3.12
-            if ($LASTEXITCODE -eq 0) {
-                Write-Success "Environment created with uv"
-                return Get-AbsolutePath "$VENV_PATH\Scripts\python.exe"
-            }
-        }
-        catch {
-            Write-Warning "uv failed, falling back to venv"
-        }
-    }
+    Ensure-Uv
     
-    # Fallback to standard venv
-    $pythonCmd = Find-Python
-    if (!$pythonCmd) {
-        throw "Python 3.10+ not found"
-    }
-    
-    if (Test-Path $VENV_PATH) {
-        if ($Force) {
-            Write-Warning "Removing existing environment..."
-            try {
-                # Stop any Python processes that might be using the venv
-                Get-Process python* -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*$VENV_PATH*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                
-                # Wait a moment for processes to terminate
-                Start-Sleep -Seconds 2
-                
-                # Use the robust removal function
-                if (Remove-LockedDirectory $VENV_PATH) {
-                    Write-Success "Existing environment removed"
-                }
-                else {
-                    throw "Unable to remove existing environment. Please restart your computer and try again."
-                }
-                
-            }
-            catch {
-                Write-Error "Failed to remove existing environment: $_"
-                Write-Host ""
-                Write-Host "Try these solutions:" -ForegroundColor Yellow
-                Write-Host "1. Close all terminals and VS Code instances" -ForegroundColor White
-                Write-Host "2. Run: Get-Process python* | Stop-Process -Force" -ForegroundColor White
-                Write-Host "3. Manually delete: $VENV_PATH" -ForegroundColor White
-                Write-Host "4. Then run the script again" -ForegroundColor White
-                exit 1
-            }
-        }
-        else {
-            Write-Success "Virtual environment already exists"
-            return Get-AbsolutePath "$VENV_PATH\Scripts\python.exe"
-        }
-    }
-    
-    Write-Info "Creating virtual environment with $pythonCmd..."
-    if ($pythonCmd.StartsWith("py ")) {
-        Invoke-Expression "$pythonCmd -m venv $VENV_PATH"
-    }
-    else {
-        & $pythonCmd -m venv $VENV_PATH
-    }
-    
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to create virtual environment"
-    }
-    
-    Write-Success "Virtual environment created"
-    return Get-AbsolutePath "$VENV_PATH\Scripts\python.exe"
-}
-
-# Setup virtual environment (legacy function for compatibility)
-function Initialize-VirtualEnvironment {
-    Write-Step "Setting up Python Virtual Environment"
-    
-    if (!$SkipVenv -and (Test-Path $VENV_PATH)) {
-        if ($Force) {
-            Write-Warning "Removing existing virtual environment..."
-            try {
-                # Stop any Python processes that might be using the venv
-                Get-Process python* -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*$VENV_PATH*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-                
-                # Wait a moment for processes to terminate
-                Start-Sleep -Seconds 2
-                
-                # Use the robust removal function
-                if (Remove-LockedDirectory $VENV_PATH) {
-                    Write-Success "Existing environment removed"
-                }
-                else {
-                    throw "Unable to remove existing environment. Please restart your computer and try again."
-                }
-                
-            }
-            catch {
-                Write-Error "Failed to remove existing environment: $_"
-                Write-Host ""
-                Write-Host "Try these solutions:" -ForegroundColor Yellow
-                Write-Host "1. Close all terminals and VS Code instances" -ForegroundColor White
-                Write-Host "2. Run: Get-Process python* | Stop-Process -Force" -ForegroundColor White
-                Write-Host "3. Manually delete: $VENV_PATH" -ForegroundColor White
-                Write-Host "4. Then run the script again" -ForegroundColor White
-                exit 1
-            }
-        }
-        else {
-            Write-Success "Virtual environment already exists"
-            return
-        }
-    }
-    
-    if ($SkipVenv) {
-        Write-Warning "Skipping virtual environment setup"
-        return
-    }
-    
-    $pythonCmd = Find-Python
-    if (!$pythonCmd) {
-        Write-Error "Python 3.10+ not found. Please install Python from https://python.org"
-        exit 1
-    }
-    
-    Write-Info "Using Python: $pythonCmd"
-    Write-Info "Creating virtual environment..."
+    Write-Info "Syncing environment with uv..."
+    $env:UV_PROJECT_ENVIRONMENT = $script:VENV_PATH
     
     try {
-        if ($pythonCmd.StartsWith("py ")) {
-            Invoke-Expression "$pythonCmd -m venv $VENV_PATH"
+        uv sync
+        if ($LASTEXITCODE -ne 0) {
+            throw "uv sync failed"
+        }
+        Write-Success "Environment synced successfully"
+        
+        $pythonPath = Join-Path $script:VENV_PATH "Scripts\python.exe"
+        if (Test-Path $pythonPath) {
+            return Get-AbsolutePath $pythonPath
         }
         else {
-            & $pythonCmd -m venv $VENV_PATH
+            throw "Python executable not found at $pythonPath"
         }
-        
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to create virtual environment"
-        }
-        
-        Write-Success "Virtual environment created"
     }
     catch {
-        Write-Error "Failed to create virtual environment: $_"
+        Write-Error "Failed to sync environment: $_"
         exit 1
     }
 }
 
-# Install dependencies function - Simplified uv-first approach
+# Install dependencies (wrapper)
 function Install-Dependencies {
     param(
         [Parameter(Mandatory = $true)]
@@ -697,78 +403,10 @@ function Install-Dependencies {
         [switch]$InstallDevDependencies = $false
     )
     
-    Write-Step "Installing Dependencies"
-
-    # Build requirements files list
-    $requirementsFiles = @("requirements.txt")
-    if ($InstallDevDependencies) {
-        if (Test-Path "requirements-dev.txt") {
-            $requirementsFiles += "requirements-dev.txt"
-            Write-Info "Including development dependencies from requirements-dev.txt"
-        }
-        else {
-            Write-Warning "Development dependencies requested but requirements-dev.txt not found"
-        }
-    }
-
-    # Try uv first for faster package management
-    $useUv = Test-Uv
-    if ($useUv) {
-        Write-Info "Installing dependencies with uv (fast)..."
-        try {
-            foreach ($file in $requirementsFiles) {
-                Write-Info "Installing from $file with uv..."
-                $uv = (Get-Command uv -ErrorAction Stop).Source
-                $arguments = @('pip', 'install', '-r', $file, '--python', $PythonPath)
-                $proc = Start-Process -FilePath $uv -ArgumentList $arguments -NoNewWindow -Wait -PassThru
-
-                if ($proc.ExitCode -ne 0) { 
-                    throw "uv failed to install $file with exit code $($proc.ExitCode)" 
-                }
-
-            }
-            Write-Success "Dependencies installed successfully with uv"
-            return
-        }
-        catch {
-            Write-Warning "uv installation failed: $_. Falling back to pip"
-            $useUv = $false
-        }
-    }
-
-    # Fallback to pip
-    Write-Info "Installing dependencies with pip..."
-    $pipCmd = Join-Path (Split-Path $PythonPath -Parent) "pip.exe"
-    
-    try {
-        # Upgrade pip first
-        & $pipCmd install --upgrade pip | Out-Null
-    }
-    catch {
-        Write-Warning "Could not upgrade pip, continuing..."
-    }
-
-    try {
-        foreach ($file in $requirementsFiles) {
-            Write-Info "Installing from $file with pip..."
-            & $pipCmd install -r $file
-            if ($LASTEXITCODE -ne 0) {
-                throw "pip failed to install $file"
-            }
-        }
-        Write-Success "Dependencies installed successfully with pip"
-    }
-    catch {
-        Write-Error "Failed to install dependencies with pip: $_"
-        exit 1
-    }
+    # Dependencies are handled by Initialize-Environment (uv sync)
+    Write-Success "Dependencies already synced via uv"
 }
 
-# ----------------------------------------------------------------------------
-# Docker Functions
-# ============================================================================
-
-# Test Docker availability and requirements
 function Test-DockerRequirements {
     Write-Step "Checking Docker Requirements"
     

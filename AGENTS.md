@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-See `requirements.txt` and `requirements-dev.txt`
+See `pyproject.toml` and `uv.lock`
 
 Also read CLAUDE.md and CLAUDE.local.md if available.
 

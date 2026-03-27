@@ -4,6 +4,11 @@
   "additional_args": [
     "--yolo"
   ],
+  "model_config": {
+    "flag": "--model",
+    "default": null,
+    "models": ["gemini-3-pro-preview", "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+  },
   "env": {},
   "roles": {
     "default": {
@@ -16,6 +21,22 @@
     },
     "codereviewer": {
       "prompt_path": "systemprompts/clink/default_codereviewer.txt",
+      "role_args": []
+    },
+    "analyze": {
+      "prompt_path": "systemprompts/clink/default_analyze.txt",
+      "role_args": []
+    },
+    "secaudit": {
+      "prompt_path": "systemprompts/clink/default_secaudit.txt",
+      "role_args": []
+    },
+    "tracer": {
+      "prompt_path": "systemprompts/clink/default_tracer.txt",
+      "role_args": []
+    },
+    "docgen": {
+      "prompt_path": "systemprompts/clink/default_docgen.txt",
       "role_args": []
     }
   }

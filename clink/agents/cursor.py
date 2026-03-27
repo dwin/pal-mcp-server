@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import shutil
 import tempfile
@@ -11,7 +10,7 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from clink.models import ResolvedCLIClient, ResolvedCLIRole
+from clink.models import ResolvedCLIRole
 from clink.parsers.base import ParserError
 
 from .base import AgentOutput, BaseCLIAgent, CLIAgentError
@@ -33,6 +32,8 @@ class CursorAgent(BaseCLIAgent):
         system_prompt: str | None = None,
         files: Sequence[str],
         images: Sequence[str],
+        cli_session_id: str | None = None,
+        model: str | None = None,
     ) -> AgentOutput:
         """Execute cursor-agent with prompt as CLI argument instead of stdin."""
 
@@ -41,7 +42,7 @@ class CursorAgent(BaseCLIAgent):
         _ = (files, images, system_prompt)
 
         # Build the command with prompt as a positional argument
-        command = self._build_command(role=role, prompt=prompt)
+        command = self._build_command(role=role, prompt=prompt, cli_session_id=cli_session_id, model=model)
         env = self._build_environment()
 
         # Resolve executable path for cross-platform compatibility
@@ -169,15 +170,41 @@ class CursorAgent(BaseCLIAgent):
             output_file_content=output_file_content,
         )
 
-    def _build_command(self, *, role: ResolvedCLIRole, prompt: str) -> list[str]:
+    def _build_command(
+        self,
+        *,
+        role: ResolvedCLIRole,
+        prompt: str,
+        cli_session_id: str | None = None,
+        model: str | None = None,
+    ) -> list[str]:
         """Build cursor-agent command with prompt as positional argument."""
 
         command = list(self.client.executable)
         command.extend(self.client.internal_args)
         command.extend(self.client.config_args)
+
+        # Inject model flag if specified or use default from models_config
+        effective_model = model
+        if effective_model is None and self.client.models_config:
+            effective_model = self.client.models_config.default
+
+        if effective_model and self.client.models_config:
+            command.extend([self.client.models_config.flag, effective_model])
+
         command.extend(role.role_args)
 
-        # cursor-agent takes the prompt as a positional argument
+        # Add resume flag if session ID provided (before the prompt)
+        if cli_session_id:
+            from clink.constants import RESUME_CONFIG
+
+            runner_name = (self.client.runner or self.client.name).lower()
+            resume_config = RESUME_CONFIG.get(runner_name)
+
+            if resume_config and resume_config.style == "flag":
+                command.extend([resume_config.flag, cli_session_id])
+
+        # cursor-agent takes the prompt as a positional argument (must be last)
         command.append(prompt)
 
         return command
