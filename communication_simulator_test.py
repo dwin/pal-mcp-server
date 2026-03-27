@@ -33,6 +33,7 @@ Usage:
 import argparse
 import subprocess
 import sys
+import warnings
 
 
 def _find_python() -> str:
@@ -89,14 +90,27 @@ def _list_tests():
 def main():
     parser = argparse.ArgumentParser(description="PAL MCP Communication Simulator Test")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
-    parser.add_argument("--keep-logs", action="store_true", help="(legacy, ignored) Logs are managed by pytest")
+    parser.add_argument("--keep-logs", action="store_true", help="(deprecated) Logs are managed by pytest")
     parser.add_argument("--tests", "-t", nargs="+", help="Specific tests to run (space-separated)")
     parser.add_argument("--list-tests", action="store_true", help="List available tests and exit")
     parser.add_argument("--individual", "-i", help="Run a single test by name")
     parser.add_argument("--quick", "-q", action="store_true", help="Run quick mode (6 essential tests)")
-    parser.add_argument("--setup", action="store_true", help="(legacy, ignored) Environment setup is automatic")
+    parser.add_argument("--setup", action="store_true", help="(deprecated) Use ./run-server.sh for environment setup")
 
     args = parser.parse_args()
+
+    if args.setup:
+        warnings.warn(
+            "--setup is deprecated and has no effect. Use ./run-server.sh for environment setup.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    if args.keep_logs:
+        warnings.warn(
+            "--keep-logs is deprecated and has no effect. Logs are managed by pytest.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     if args.list_tests:
         _list_tests()
