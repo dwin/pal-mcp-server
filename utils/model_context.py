@@ -166,12 +166,11 @@ class ModelContext:
         """
         Estimate token count for text using model-specific tokenizer.
 
-        For now, uses simple estimation. Can be enhanced with model-specific
-        tokenizers (tiktoken for OpenAI, etc.) in the future.
+        For now, uses simple estimation (1 token ≈ 3 chars). Can be enhanced
+        with model-specific tokenizers (tiktoken for OpenAI, etc.) if higher
+        accuracy is needed.
         """
-        # TODO: Integrate model-specific tokenizers
-        # For now, use conservative estimation
-        return len(text) // 3  # Conservative estimate
+        return len(text) // 3
 
     @classmethod
     def from_arguments(cls, arguments: dict[str, Any]) -> "ModelContext":
