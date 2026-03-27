@@ -11,7 +11,7 @@ def _build_rate_limit_stdout() -> str:
         '  "response": "",\n'
         '  "stats": {\n'
         '    "models": {\n'
-        '      "gemini-2.5-pro": {\n'
+        '      "gemini-3.1-pro-preview": {\n'
         '        "api": {\n'
         '          "totalRequests": 5,\n'
         '          "totalErrors": 5,\n'
@@ -57,7 +57,7 @@ def test_gemini_parser_extracts_session_id():
   "response": "Hello! How can I help you with your project today?",
   "stats": {
     "models": {
-      "gemini-2.5-flash-lite": {
+      "gemini-3-flash-preview-lite": {
         "api": {
           "totalRequests": 1,
           "totalErrors": 0,
@@ -83,5 +83,5 @@ def test_gemini_parser_extracts_session_id():
 
     assert parsed.content == "Hello! How can I help you with your project today?"
     assert parsed.metadata["session_id"] == "988ecb67-d98f-4e7b-84cb-fb42cacd79c4"
-    assert parsed.metadata["model_used"] == "gemini-2.5-flash-lite"
+    assert parsed.metadata["model_used"] == "gemini-3-flash-preview-lite"
     assert parsed.metadata["token_usage"]["input"] == 3274

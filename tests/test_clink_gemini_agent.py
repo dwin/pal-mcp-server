@@ -21,7 +21,7 @@ class DummyProcess:
         return self._stdout, self._stderr
 
 
-def _build_stream_json_output(content: str, session_id: str, model: str = "gemini-2.5-flash") -> bytes:
+def _build_stream_json_output(content: str, session_id: str, model: str = "gemini-3-flash-preview") -> bytes:
     """Build stream-json output matching gemini-cli 0.26.0 format."""
     lines = [
         f'{{"type":"init","timestamp":"2026-01-30T04:28:26.132Z","session_id":"{session_id}","model":"{model}"}}',
@@ -78,7 +78,7 @@ async def test_gemini_agent_parses_stream_json_output(monkeypatch, gemini_agent)
     assert result.returncode == 0
     assert "Hello" in result.parsed.content
     assert result.parsed.metadata["session_id"] == "7bffa130-8c69-4cf8-ac8a-0d36b2d99f53"
-    assert result.parsed.metadata["model_used"] == "gemini-2.5-flash"
+    assert result.parsed.metadata["model_used"] == "gemini-3-flash-preview"
     assert result.parsed.metadata["latency_ms"] == 4705
 
 

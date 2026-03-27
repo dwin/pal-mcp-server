@@ -86,10 +86,10 @@ class TestCustomProvider:
         """Test model alias resolution works correctly."""
         provider = CustomProvider(api_key="test-key", base_url="http://localhost:11434/v1")
 
-        # Test that aliases resolve properly
-        # "llama" now resolves to "meta-llama/llama-3-70b" (the OpenRouter model)
-        resolved = provider._resolve_model_name("llama")
-        assert resolved == "meta-llama/llama-3-70b"
+        # Test that OpenRouter aliases resolve properly via fallback
+        # "opus" resolves to "anthropic/claude-opus-4.6" via OpenRouter registry
+        resolved = provider._resolve_model_name("opus")
+        assert resolved == "anthropic/claude-opus-4.6"
 
         # Test local model alias
         resolved_local = provider._resolve_model_name("local-llama")
@@ -216,8 +216,8 @@ class TestCustomProviderRegistration:
             custom_provider = custom_provider_factory()
             openrouter_provider = OpenRouterProvider(api_key="test-openrouter-key")
 
-            assert not custom_provider.validate_model_name("llama")
-            assert openrouter_provider.validate_model_name("llama")
+            assert not custom_provider.validate_model_name("opus")
+            assert openrouter_provider.validate_model_name("opus")
 
 
 class TestConfigureProvidersFunction:

@@ -104,7 +104,7 @@ def test_gemini_stream_parser_extracts_events():
 def test_gemini_stream_parser_handles_multiple_assistant_messages():
     """Test parser uses latest assistant message (streaming scenario)."""
     parser = GeminiStreamJSONParser()
-    stdout = """{"type":"init","session_id":"abc-123","model":"gemini-2.5-flash"}
+    stdout = """{"type":"init","session_id":"abc-123","model":"gemini-3-flash-preview"}
 {"type":"message","role":"assistant","content":"Hello","delta":true}
 {"type":"message","role":"assistant","content":"Hello! How can I help?","delta":true}
 {"type":"result","status":"success","stats":{}}"""
@@ -151,7 +151,7 @@ def test_gemini_stream_parser_skips_non_json_lines():
     parser = GeminiStreamJSONParser()
     stdout = """Loaded cached credentials.
 Hook registry initialized with 0 hook entries
-{"type":"init","session_id":"abc-123","model":"gemini-2.5-flash"}
+{"type":"init","session_id":"abc-123","model":"gemini-3-flash-preview"}
 {"type":"message","role":"assistant","content":"Hello!"}
 {"type":"result","status":"success","stats":{}}"""
 

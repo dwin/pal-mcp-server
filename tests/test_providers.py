@@ -64,7 +64,7 @@ class TestModelProviderRegistry:
         """Test getting provider for a specific model"""
         ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
-        provider = ModelProviderRegistry.get_provider_for_model("gemini-2.5-flash")
+        provider = ModelProviderRegistry.get_provider_for_model("gemini-3-flash-preview")
 
         assert provider is not None
         assert isinstance(provider, GeminiModelProvider)
@@ -95,10 +95,10 @@ class TestGeminiProvider:
         """Test getting model capabilities"""
         provider = GeminiModelProvider(api_key="test-key")
 
-        capabilities = provider.get_capabilities("gemini-2.5-flash")
+        capabilities = provider.get_capabilities("gemini-3-flash-preview")
 
         assert capabilities.provider == ProviderType.GOOGLE
-        assert capabilities.model_name == "gemini-2.5-flash"
+        assert capabilities.model_name == "gemini-3-flash-preview"
         assert capabilities.context_window == 1_048_576
         assert capabilities.supports_extended_thinking
 
@@ -106,7 +106,7 @@ class TestGeminiProvider:
         """Test getting capabilities for Pro model with thinking support"""
         provider = GeminiModelProvider(api_key="test-key")
 
-        capabilities = provider.get_capabilities("gemini-2.5-pro")
+        capabilities = provider.get_capabilities("gemini-3.1-pro-preview")
 
         assert capabilities.supports_extended_thinking
 
@@ -115,10 +115,10 @@ class TestGeminiProvider:
         provider = GeminiModelProvider(api_key="test-key")
 
         assert provider.validate_model_name("flash")
-        assert provider.validate_model_name("pro")
+        assert provider.validate_model_name("gemini-pro")
 
         capabilities = provider.get_capabilities("flash")
-        assert capabilities.model_name == "gemini-2.5-flash"
+        assert capabilities.model_name == "gemini-3-flash-preview"
 
     @patch("google.genai.Client")
     def test_generate_content(self, mock_client_class):
@@ -141,11 +141,11 @@ class TestGeminiProvider:
 
         provider = GeminiModelProvider(api_key="test-key")
 
-        response = provider.generate_content(prompt="Test prompt", model_name="gemini-2.5-flash", temperature=0.7)
+        response = provider.generate_content(prompt="Test prompt", model_name="gemini-3-flash-preview", temperature=0.7)
 
         assert isinstance(response, ModelResponse)
         assert response.content == "Generated content"
-        assert response.model_name == "gemini-2.5-flash"
+        assert response.model_name == "gemini-3-flash-preview"
         assert response.provider == ProviderType.GOOGLE
         assert response.usage["input_tokens"] == 10
         assert response.usage["output_tokens"] == 20
@@ -175,16 +175,16 @@ class TestOpenAIProvider:
         assert provider.organization == "test-org"
         assert provider.get_provider_type() == ProviderType.OPENAI
 
-    def test_get_capabilities_o3(self):
-        """Test getting O3 model capabilities"""
+    def test_get_capabilities_gpt54(self):
+        """Test getting GPT-5.4 model capabilities"""
         provider = OpenAIModelProvider(api_key="test-key")
 
-        capabilities = provider.get_capabilities("o3-mini")
+        capabilities = provider.get_capabilities("gpt-5.4")
 
         assert capabilities.provider == ProviderType.OPENAI
-        assert capabilities.model_name == "o3-mini"
-        assert capabilities.context_window == 200_000
-        assert not capabilities.supports_extended_thinking
+        assert capabilities.model_name == "gpt-5.4"
+        assert capabilities.context_window == 272_000
+        assert capabilities.supports_extended_thinking
 
     def test_get_capabilities_o4_mini(self):
         """Test getting O4-mini model capabilities"""
@@ -203,15 +203,15 @@ class TestOpenAIProvider:
         """Test model name validation"""
         provider = OpenAIModelProvider(api_key="test-key")
 
-        assert provider.validate_model_name("o3")
-        assert provider.validate_model_name("o3mini")
-        assert provider.validate_model_name("o3-mini")  # Backwards compatibility
+        assert provider.validate_model_name("gpt-5.4")
+        assert provider.validate_model_name("gpt-5.4-pro")
         assert provider.validate_model_name("o4-mini")
         assert provider.validate_model_name("o4mini")
-        assert provider.validate_model_name("o4-mini")
         assert provider.validate_model_name("gpt-5.2")
-        assert provider.validate_model_name("gpt-5.1-codex")
-        assert provider.validate_model_name("gpt-5.1-codex-mini")
+        assert provider.validate_model_name("gpt-5.3-codex")
+        assert provider.validate_model_name("gpt-5.2-codex")
+        assert provider.validate_model_name("gpt-5.4-mini")
+        assert provider.validate_model_name("gpt-5.4-nano")
         assert not provider.validate_model_name("gpt-4o")
         assert not provider.validate_model_name("invalid-model")
 
@@ -219,7 +219,7 @@ class TestOpenAIProvider:
         """OpenAI catalogue exposes extended thinking capability via ModelCapabilities."""
         provider = OpenAIModelProvider(api_key="test-key")
 
-        aliases = ["o3", "o3mini", "o3-mini", "o4-mini", "o4mini"]
+        aliases = ["o4-mini", "o4mini", "gpt5.4-mini", "mini", "nano"]
         for alias in aliases:
             assert not provider.get_capabilities(alias).supports_extended_thinking
 
@@ -231,11 +231,7 @@ class TestOpenAIProvider:
         assert base.supports_streaming
         assert base.allow_code_generation
 
-        codex = provider.get_capabilities("gpt-5.1-codex")
+        codex = provider.get_capabilities("gpt-5.3-codex")
         assert not codex.supports_streaming
         assert codex.use_openai_response_api
         assert codex.allow_code_generation
-
-        codex_mini = provider.get_capabilities("gpt-5.1-codex-mini")
-        assert codex_mini.supports_streaming
-        assert codex_mini.allow_code_generation

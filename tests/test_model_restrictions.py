@@ -22,8 +22,8 @@ class TestModelRestrictionService:
             # Should allow all models
             assert service.is_allowed(ProviderType.OPENAI, "o3")
             assert service.is_allowed(ProviderType.OPENAI, "o3-mini")
-            assert service.is_allowed(ProviderType.GOOGLE, "gemini-2.5-pro")
-            assert service.is_allowed(ProviderType.GOOGLE, "gemini-2.5-flash")
+            assert service.is_allowed(ProviderType.GOOGLE, "gemini-3.1-pro-preview")
+            assert service.is_allowed(ProviderType.GOOGLE, "gemini-3-flash-preview")
             assert service.is_allowed(ProviderType.OPENROUTER, "anthropic/claude-opus-4")
             assert service.is_allowed(ProviderType.OPENROUTER, "openai/o3")
 
@@ -43,12 +43,12 @@ class TestModelRestrictionService:
             assert not service.is_allowed(ProviderType.OPENAI, "o4-mini")
 
             # Google and OpenRouter should have no restrictions
-            assert service.is_allowed(ProviderType.GOOGLE, "gemini-2.5-pro")
+            assert service.is_allowed(ProviderType.GOOGLE, "gemini-3.1-pro-preview")
             assert service.is_allowed(ProviderType.OPENROUTER, "anthropic/claude-opus-4")
 
     def test_load_multiple_models_restriction(self):
         """Test loading multiple allowed models."""
-        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini,o4-mini", "GOOGLE_ALLOWED_MODELS": "flash,pro"}):
+        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini,o4-mini", "GOOGLE_ALLOWED_MODELS": "flash,gemini-pro"}):
             # Instantiate providers so alias resolution for allow-lists is available
             openai_provider = OpenAIModelProvider(api_key="test-key")
             gemini_provider = GeminiModelProvider(api_key="test-key")
@@ -73,8 +73,8 @@ class TestModelRestrictionService:
 
                 # Check Google models
                 assert service.is_allowed(ProviderType.GOOGLE, "flash")
-                assert service.is_allowed(ProviderType.GOOGLE, "pro")
-                assert service.is_allowed(ProviderType.GOOGLE, "gemini-3-pro-preview")
+                assert service.is_allowed(ProviderType.GOOGLE, "gemini-pro")
+                assert service.is_allowed(ProviderType.GOOGLE, "gemini-3.1-pro-preview")
 
     def test_case_insensitive_and_whitespace_handling(self):
         """Test that model names are case-insensitive and whitespace is trimmed."""
@@ -99,9 +99,9 @@ class TestModelRestrictionService:
 
             # Google should only allow flash (and its resolved name)
             assert service.is_allowed(ProviderType.GOOGLE, "flash")
-            assert service.is_allowed(ProviderType.GOOGLE, "gemini-2.5-flash", "flash")
-            assert not service.is_allowed(ProviderType.GOOGLE, "pro")
-            assert not service.is_allowed(ProviderType.GOOGLE, "gemini-2.5-pro", "pro")
+            assert service.is_allowed(ProviderType.GOOGLE, "gemini-3-flash-preview", "flash")
+            assert not service.is_allowed(ProviderType.GOOGLE, "gemini-pro")
+            assert not service.is_allowed(ProviderType.GOOGLE, "gemini-3.1-pro-preview", "gemini-pro")
 
     def test_filter_models(self):
         """Test filtering a list of models based on restrictions."""
@@ -126,7 +126,7 @@ class TestModelRestrictionService:
 
     def test_shorthand_names_in_restrictions(self):
         """Test that shorthand names work in restrictions."""
-        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o4mini,o3mini", "GOOGLE_ALLOWED_MODELS": "flash,pro"}):
+        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o4mini,mini", "GOOGLE_ALLOWED_MODELS": "flash,gemini-pro"}):
             # Instantiate providers so the registry can resolve aliases
             OpenAIModelProvider(api_key="test-key")
             GeminiModelProvider(api_key="test-key")
@@ -138,16 +138,16 @@ class TestModelRestrictionService:
             assert service.is_allowed(ProviderType.OPENAI, "o4-mini", "o4mini")  # How providers actually call it
             assert service.is_allowed(ProviderType.OPENAI, "o4-mini")  # Canonical should also be allowed
 
-            # OpenAI: o3-mini allowed directly
-            assert service.is_allowed(ProviderType.OPENAI, "o3-mini")
-            assert not service.is_allowed(ProviderType.OPENAI, "o3")
+            # OpenAI: mini shorthand allows gpt-5.4-mini
+            assert service.is_allowed(ProviderType.OPENAI, "gpt-5.4-mini", "mini")
+            assert not service.is_allowed(ProviderType.OPENAI, "gpt-5.4")
 
             # Google should allow both models via shorthands
-            assert service.is_allowed(ProviderType.GOOGLE, "gemini-2.5-flash", "flash")
-            assert service.is_allowed(ProviderType.GOOGLE, "gemini-2.5-pro", "pro")
+            assert service.is_allowed(ProviderType.GOOGLE, "gemini-3-flash-preview", "flash")
+            assert service.is_allowed(ProviderType.GOOGLE, "gemini-3.1-pro-preview", "gemini-pro")
 
             # Also test that full names work when specified in restrictions
-            assert service.is_allowed(ProviderType.OPENAI, "o3-mini", "o3mini")  # Even with shorthand
+            assert service.is_allowed(ProviderType.OPENAI, "o4-mini", "o4mini")  # Full name with shorthand
 
     def test_validation_against_known_models(self, caplog):
         """Test validation warnings for unknown models."""
@@ -236,7 +236,7 @@ class TestModelRestrictionService:
 class TestProviderIntegration:
     """Test integration with actual providers."""
 
-    @patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini"})
+    @patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o4-mini"})
     def test_openai_provider_respects_restrictions(self):
         """Test that OpenAI provider respects restrictions."""
         # Clear any cached restriction service
@@ -247,17 +247,17 @@ class TestProviderIntegration:
         provider = OpenAIModelProvider(api_key="test-key")
 
         # Should validate allowed model
-        assert provider.validate_model_name("o3-mini")
+        assert provider.validate_model_name("o4-mini")
 
         # Should not validate disallowed model
-        assert not provider.validate_model_name("o3")
+        assert not provider.validate_model_name("gpt-5.4")
 
         # get_capabilities should raise for disallowed model
         with pytest.raises(ValueError) as exc_info:
-            provider.get_capabilities("o3")
+            provider.get_capabilities("gpt-5.4")
         assert "not allowed by restriction policy" in str(exc_info.value)
 
-    @patch.dict(os.environ, {"GOOGLE_ALLOWED_MODELS": "gemini-2.5-flash,flash"})
+    @patch.dict(os.environ, {"GOOGLE_ALLOWED_MODELS": "gemini-3-flash-preview,flash"})
     def test_gemini_provider_respects_restrictions(self):
         """Test that Gemini provider respects restrictions."""
         # Clear any cached restriction service
@@ -269,15 +269,15 @@ class TestProviderIntegration:
 
         # Should validate allowed models (both shorthand and full name allowed)
         assert provider.validate_model_name("flash")
-        assert provider.validate_model_name("gemini-2.5-flash")
+        assert provider.validate_model_name("gemini-3-flash-preview")
 
         # Should not validate disallowed model
-        assert not provider.validate_model_name("pro")
-        assert not provider.validate_model_name("gemini-2.5-pro")
+        assert not provider.validate_model_name("gemini-pro")
+        assert not provider.validate_model_name("gemini-3.1-pro-preview")
 
         # get_capabilities should raise for disallowed model
         with pytest.raises(ValueError) as exc_info:
-            provider.get_capabilities("pro")
+            provider.get_capabilities("gemini-3.1-pro-preview")
         assert "not allowed by restriction policy" in str(exc_info.value)
 
     @patch.dict(os.environ, {"GOOGLE_ALLOWED_MODELS": "flash"})
@@ -311,15 +311,15 @@ class TestProviderIntegration:
 
             # Should allow getting capabilities for "flash"
             capabilities = provider.get_capabilities("flash")
-            assert capabilities.model_name == "gemini-2.5-flash"
+            assert capabilities.model_name == "gemini-3-flash-preview"
 
             # Canonical form should also be allowed now that alias is on the allowlist
-            assert provider.validate_model_name("gemini-2.5-flash")
+            assert provider.validate_model_name("gemini-3-flash-preview")
             # Unrelated models remain blocked
             assert not provider.validate_model_name("pro")
-            assert not provider.validate_model_name("gemini-2.5-pro")
+            assert not provider.validate_model_name("gemini-3.1-pro-preview")
 
-    @patch.dict(os.environ, {"GOOGLE_ALLOWED_MODELS": "gemini-2.5-flash"})
+    @patch.dict(os.environ, {"GOOGLE_ALLOWED_MODELS": "gemini-3-flash-preview"})
     def test_gemini_parameter_order_edge_case_full_name_only(self):
         """Test parameter order with only full name allowed, not alias.
 
@@ -335,7 +335,7 @@ class TestProviderIntegration:
         provider = GeminiModelProvider(api_key="test-key")
 
         # Should allow full name
-        assert provider.validate_model_name("gemini-2.5-flash")
+        assert provider.validate_model_name("gemini-3-flash-preview")
 
         # Should also allow alias that resolves to allowed full name
         # This works because is_allowed checks both resolved_name and original_name
@@ -343,7 +343,7 @@ class TestProviderIntegration:
 
         # Should not allow "pro" alias
         assert not provider.validate_model_name("pro")
-        assert not provider.validate_model_name("gemini-2.5-pro")
+        assert not provider.validate_model_name("gemini-3.1-pro-preview")
 
 
 class TestCustomProviderOpenRouterRestrictions:
@@ -509,8 +509,8 @@ class TestRegistryIntegration:
 
         mock_gemini = MagicMock()
         mock_gemini.MODEL_CAPABILITIES = {
-            "gemini-2.5-pro": {"context_window": 1048576},
-            "gemini-2.5-flash": {"context_window": 1048576},
+            "gemini-3.1-pro-preview": {"context_window": 1048576},
+            "gemini-3-flash-preview": {"context_window": 1048576},
         }
         mock_gemini.get_provider_type.return_value = ProviderType.GOOGLE
 
@@ -567,7 +567,7 @@ class TestRegistryIntegration:
             ProviderType.GOOGLE: type(mock_gemini),
         }
 
-        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini", "GOOGLE_ALLOWED_MODELS": "gemini-2.5-flash"}):
+        with patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3-mini", "GOOGLE_ALLOWED_MODELS": "gemini-3-flash-preview"}):
             # Clear cached restriction service
             import utils.model_restrictions
 
@@ -578,8 +578,8 @@ class TestRegistryIntegration:
             # Should only include allowed models
             assert "o3-mini" in available
             assert "o3" not in available
-            assert "gemini-2.5-flash" in available
-            assert "gemini-2.5-pro" not in available
+            assert "gemini-3-flash-preview" in available
+            assert "gemini-3.1-pro-preview" not in available
 
 
 class TestShorthandRestrictions:
@@ -608,16 +608,16 @@ class TestShorthandRestrictions:
 
         with patch.object(ModelProviderRegistry, "get_provider", side_effect=registry_side_effect):
             assert openai_provider.validate_model_name("mini")  # Should work with shorthand
-            assert openai_provider.validate_model_name("gpt-5-mini")  # Canonical resolved from shorthand
+            assert openai_provider.validate_model_name("gpt-5.4-mini")  # Canonical resolved from shorthand
             assert not openai_provider.validate_model_name("o4-mini")  # Unrelated model still blocked
-            assert not openai_provider.validate_model_name("o3-mini")
+            assert not openai_provider.validate_model_name("gpt-5.4")
 
             # Test Gemini provider
             assert gemini_provider.validate_model_name("flash")  # Should work with shorthand
-            assert gemini_provider.validate_model_name("gemini-2.5-flash")  # Canonical allowed
-            assert not gemini_provider.validate_model_name("pro")  # Not allowed
+            assert gemini_provider.validate_model_name("gemini-3-flash-preview")  # Canonical allowed
+            assert not gemini_provider.validate_model_name("gemini-pro")  # Not allowed
 
-    @patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3mini,mini,o4-mini"})
+    @patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o4mini,mini,o4-mini"})
     def test_multiple_shorthands_for_same_model(self):
         """Test that multiple shorthands work correctly."""
         # Clear cached restriction service
@@ -628,20 +628,19 @@ class TestShorthandRestrictions:
         openai_provider = OpenAIModelProvider(api_key="test-key")
 
         # Both shorthands should work
-        assert openai_provider.validate_model_name("mini")  # mini -> o4-mini
-        assert openai_provider.validate_model_name("o3mini")  # o3mini -> o3-mini
+        assert openai_provider.validate_model_name("mini")  # mini -> gpt-5.4-mini
+        assert openai_provider.validate_model_name("o4mini")  # o4mini -> o4-mini
 
         # Resolved names should be allowed when their shorthands are present
         assert openai_provider.validate_model_name("o4-mini")  # Explicitly allowed
-        assert openai_provider.validate_model_name("o3-mini")  # Allowed via shorthand
 
         # Other models should not work
-        assert not openai_provider.validate_model_name("o3")
-        assert not openai_provider.validate_model_name("o3-pro")
+        assert not openai_provider.validate_model_name("gpt-5.4")
+        assert not openai_provider.validate_model_name("gpt-5.4-pro")
 
     @patch.dict(
         os.environ,
-        {"OPENAI_ALLOWED_MODELS": "mini,o4-mini", "GOOGLE_ALLOWED_MODELS": "flash,gemini-2.5-flash"},
+        {"OPENAI_ALLOWED_MODELS": "mini,o4-mini", "GOOGLE_ALLOWED_MODELS": "flash,gemini-3-flash-preview"},
     )
     def test_both_shorthand_and_full_name_allowed(self):
         """Test that we can allow both shorthand and full names."""
@@ -658,7 +657,7 @@ class TestShorthandRestrictions:
         # Gemini - both flash and full name are allowed
         gemini_provider = GeminiModelProvider(api_key="test-key")
         assert gemini_provider.validate_model_name("flash")
-        assert gemini_provider.validate_model_name("gemini-2.5-flash")
+        assert gemini_provider.validate_model_name("gemini-3-flash-preview")
 
 
 class TestAutoModeWithRestrictions:
@@ -778,8 +777,8 @@ class TestAutoModeWithRestrictions:
 
             # The fallback will depend on how get_available_models handles aliases
             # When "mini" is allowed, it's returned as the allowed model
-            # "mini" is now an alias for gpt-5-mini, but the list shows "mini" itself
-            assert model in ["mini", "gpt-5-mini", "o4-mini", "gemini-2.5-flash"]
+            # "mini" is now an alias for gpt-5.4-mini, but the list shows "mini" itself
+            assert model in ["mini", "gpt-5.4-mini", "o4-mini", "gemini-3-flash-preview"]
         finally:
             # Restore original registry state
             registry = ModelProviderRegistry()
