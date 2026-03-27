@@ -70,6 +70,11 @@ class ModelProviderRegistry:
         instance._initialized_providers.pop(provider_type, None)
 
     @classmethod
+    def get_existing_instance(cls) -> Optional["ModelProviderRegistry"]:
+        """Return the initialized registry instance, or None if startup never created one."""
+        return cls._instance
+
+    @classmethod
     def get_provider(cls, provider_type: ProviderType, force_new: bool = False) -> Optional[ModelProvider]:
         """Get an initialized provider instance.
 

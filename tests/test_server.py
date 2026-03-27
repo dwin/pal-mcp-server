@@ -29,6 +29,22 @@ class TestServerTools:
         if hasattr(signal, "SIGPIPE"):
             assert registered_handlers[signal.SIGPIPE] == signal.SIG_IGN
 
+    def test_register_signal_handlers_ignores_sigpipe_registration_errors(self, monkeypatch):
+        """Test SIGPIPE registration failures do not abort startup."""
+        registered_handlers = {}
+
+        def fake_signal(sig, handler):
+            if hasattr(signal, "SIGPIPE") and sig == signal.SIGPIPE:
+                raise ValueError("SIGPIPE unsupported in this runtime")
+            registered_handlers[sig] = handler
+
+        monkeypatch.setattr(signal, "signal", fake_signal)
+
+        server.register_signal_handlers()
+
+        assert registered_handlers[signal.SIGTERM] is server.shutdown_handler
+        assert registered_handlers[signal.SIGINT] is server.shutdown_handler
+
     def test_shutdown_handler_raises_keyboard_interrupt(self, caplog):
         """Test shutdown signals trigger graceful interruption."""
         with caplog.at_level("INFO"):

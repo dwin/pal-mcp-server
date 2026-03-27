@@ -158,11 +158,16 @@ _provider_cleanup_registered = False
 
 
 def cleanup_providers():
-    """Clean up all registered providers on shutdown."""
+    """Clean up registered providers without creating a registry during shutdown.
+
+    This helper is safe to call multiple times. If provider startup never created
+    a registry instance, cleanup is skipped quietly so interpreter teardown does
+    not instantiate new objects or emit late shutdown logging.
+    """
     try:
         from providers import ModelProviderRegistry
 
-        registry = getattr(ModelProviderRegistry, "_instance", None)
+        registry = ModelProviderRegistry.get_existing_instance()
         if registry and hasattr(registry, "_initialized_providers"):
             for provider in list(registry._initialized_providers.values()):
                 try:
@@ -191,7 +196,7 @@ def shutdown_handler(signum, _frame):
     try:
         signal_name = signal.Signals(signum).name
     except (AttributeError, TypeError, ValueError):
-        signal_name = str(signum)
+        signal_name = f"signal {signum}" if signum is not None else "shutdown handler called with no signal"
 
     logger.info(f"Received {signal_name}; starting graceful shutdown")
     raise KeyboardInterrupt
@@ -205,6 +210,7 @@ def register_signal_handlers():
     try:
         signal.signal(signal.SIGPIPE, signal.SIG_IGN)
     except (AttributeError, ValueError):
+        # SIGPIPE is not available or configurable on every platform/runtime.
         pass
 
 
