@@ -164,14 +164,14 @@ class ModelContext:
 
     def estimate_tokens(self, text: str) -> int:
         """
-        Estimate token count for text.
+        Estimate token count for text using a conservative heuristic.
 
-        Delegates to utils.token_utils.estimate_tokens for a consistent
-        heuristic across the codebase.
+        Uses 1 token ≈ 3 chars (intentionally more conservative than
+        token_utils.estimate_tokens which uses ≈ 4 chars) because this
+        method is used for history/file budgeting near context limits
+        where over-estimation is safer than under-estimation.
         """
-        from utils.token_utils import estimate_tokens
-
-        return estimate_tokens(text)
+        return len(text) // 3
 
     @classmethod
     def from_arguments(cls, arguments: dict[str, Any]) -> "ModelContext":
