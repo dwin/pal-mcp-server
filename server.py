@@ -165,7 +165,7 @@ def cleanup_providers():
     not instantiate new objects or emit late shutdown logging.
     """
     try:
-        from providers import ModelProviderRegistry
+        from providers.registry import ModelProviderRegistry
 
         registry = ModelProviderRegistry.get_existing_instance()
         if registry and hasattr(registry, "_initialized_providers"):
