@@ -35,10 +35,24 @@ import subprocess
 import sys
 
 
+def _find_python() -> str:
+    """Locate the best Python interpreter, preferring a project venv."""
+    import os
+
+    cwd = os.getcwd()
+    for venv_dir in (".venv", "venv", ".pal_venv"):
+        for bin_path in ("bin/python", "Scripts/python.exe"):
+            candidate = os.path.join(cwd, venv_dir, bin_path)
+            if os.path.exists(candidate):
+                return candidate
+    return sys.executable
+
+
 def _build_pytest_args(args) -> list[str]:
     """Build the pytest command-line from parsed arguments."""
+    python = _find_python()
     cmd = [
-        sys.executable,
+        python,
         "-m",
         "pytest",
         "simulator_tests/test_pytest_adapter.py",

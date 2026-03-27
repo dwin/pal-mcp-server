@@ -36,14 +36,20 @@ class TestTestBoundaries:
             "simulator_tests/test_pytest_adapter.py is missing — " "this module wraps TEST_REGISTRY for pytest"
         )
 
-    def test_no_duplicate_conftest_logic_in_mock_helpers(self):
-        """mock_helpers.py should be a thin re-export, not a standalone module.
+    def test_mock_helpers_is_thin_reexport(self):
+        """mock_helpers.py should be a thin wrapper, not a standalone module.
 
         The canonical implementation of create_mock_provider lives in
-        tests/conftest.py as _create_mock_provider.
+        tests/conftest.py as _create_mock_provider. mock_helpers.py must
+        only re-export it without defining provider logic itself.
         """
-        from tests.conftest import _create_mock_provider
+        import inspect
 
-        provider = _create_mock_provider()
-        assert provider is not None
-        assert provider.get_capabilities().model_name == "gemini-3-flash-preview"
+        import tests.mock_helpers as mh
+
+        source = inspect.getsource(mh)
+        # The module should NOT define ModelCapabilities, Mock(), etc. inline
+        assert "ModelCapabilities" not in source, "mock_helpers.py should not define provider logic"
+        assert (
+            "mock_provider" not in source.lower() or "create_mock_provider" in source
+        ), "mock_helpers.py should only re-export create_mock_provider"

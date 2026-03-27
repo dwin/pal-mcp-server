@@ -7,6 +7,7 @@ and adapts the TEST_REGISTRY classes into pytest-discoverable tests.
 
 import os
 import shutil
+import sys
 import tempfile
 
 import pytest
@@ -18,14 +19,16 @@ def simulator_env():
     if not os.path.exists("server.py"):
         pytest.skip("server.py not found — simulator tests require the server environment")
 
-    # Find a usable Python interpreter
+    # Find a usable Python interpreter (Unix and Windows layouts)
     cwd = os.getcwd()
     for venv_dir in (".venv", "venv", ".pal_venv"):
-        python = os.path.join(cwd, venv_dir, "bin", "python")
-        if os.path.exists(python):
-            return python
+        for bin_path in ("bin/python", "Scripts/python.exe"):
+            python = os.path.join(cwd, venv_dir, bin_path)
+            if os.path.exists(python):
+                return python
 
-    pytest.skip("No virtual environment found — run ./run-server.sh first")
+    # Fall back to the running interpreter if no venv found
+    return sys.executable
 
 
 @pytest.fixture
@@ -34,6 +37,3 @@ def sim_temp_dir():
     temp_dir = tempfile.mkdtemp(prefix="mcp_test_")
     yield temp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-from simulator_tests import QUICK_TESTS  # noqa: E402, F401
