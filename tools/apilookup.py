@@ -9,7 +9,7 @@ from pydantic import Field
 
 from config import TEMPERATURE_ANALYTICAL
 from tools.shared.base_models import ToolRequest
-from tools.simple.base import SimpleTool
+from tools.shared.base_tool import BaseTool
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
@@ -67,7 +67,7 @@ SEARCH STRATEGY (MAXIMUM 2-4 SEARCHES TOTAL FOR THIS MISSION - THEN STOP):
 """.strip()
 
 
-class LookupTool(SimpleTool):
+class LookupTool(BaseTool):
     """Simple tool that wraps user queries with API lookup instructions."""
 
     def get_name(self) -> str:

@@ -17,9 +17,8 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from tools.shared.base_models import ToolRequest
+from tools.shared.base_tool import BaseTool
 from tools.shared.exceptions import ToolExecutionError
-
-from .simple.base import SimpleTool
 
 # Field descriptions for the Challenge tool
 CHALLENGE_FIELD_DESCRIPTIONS = {
@@ -36,7 +35,7 @@ class ChallengeRequest(ToolRequest):
     prompt: str = Field(..., description=CHALLENGE_FIELD_DESCRIPTIONS["prompt"])
 
 
-class ChallengeTool(SimpleTool):
+class ChallengeTool(BaseTool):
     """
     Challenge tool for encouraging critical thinking and avoiding automatic agreement.
 
@@ -174,7 +173,7 @@ class ChallengeTool(SimpleTool):
             f"Respond with thoughtful analysis—stay to the point and avoid reflexive agreement."
         )
 
-    # Required method implementations from SimpleTool
+    # Required method implementations from BaseTool
 
     async def prepare_prompt(self, request: ChallengeRequest) -> str:
         """Not used since challenge doesn't call AI models"""

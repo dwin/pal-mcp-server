@@ -21,8 +21,7 @@ if TYPE_CHECKING:
 from config import TEMPERATURE_BALANCED
 from systemprompts import CHAT_PROMPT, GENERATE_CODE_PROMPT
 from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, ToolRequest
-
-from .simple.base import SimpleTool
+from tools.shared.base_tool import BaseTool
 
 # Field descriptions matching the original Chat tool exactly
 CHAT_FIELD_DESCRIPTIONS = {
@@ -54,12 +53,12 @@ class ChatRequest(ToolRequest):
     )
 
 
-class ChatTool(SimpleTool):
+class ChatTool(BaseTool):
     """
-    General development chat and collaborative thinking tool using SimpleTool architecture.
+    General development chat and collaborative thinking tool using BaseTool defaults.
 
     This tool provides identical functionality to the original Chat tool but uses the new
-    SimpleTool architecture for cleaner code organization and better maintainability.
+    shared BaseTool execution path for cleaner code organization and better maintainability.
 
     Migration note: This tool is designed to be a drop-in replacement for the original
     Chat tool with 100% behavioral compatibility.
@@ -159,7 +158,7 @@ class ChatTool(SimpleTool):
         return schema
 
     def get_tool_fields(self) -> dict[str, dict[str, Any]]:
-        """Tool-specific field definitions used by SimpleTool scaffolding."""
+        """Tool-specific field definitions used by the shared schema scaffolding."""
 
         return {
             "prompt": {
@@ -193,9 +192,9 @@ class ChatTool(SimpleTool):
         Prepare the chat prompt with optional context files.
 
         This implementation matches the original Chat tool exactly while using
-        SimpleTool convenience methods for cleaner code.
+        BaseTool convenience methods for cleaner code.
         """
-        # Use SimpleTool's Chat-style prompt preparation
+        # Use the shared Chat-style prompt preparation helper.
         return self.prepare_chat_style_prompt(request)
 
     def _validate_file_paths(self, request) -> Optional[str]:

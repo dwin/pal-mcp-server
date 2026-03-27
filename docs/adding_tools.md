@@ -8,16 +8,18 @@ This document captures the minimal steps required to add a new tool without drif
 
 ## 1. Pick the Tool Architecture
 
-PAL supports two architectures, implemented in `tools/simple/base.py` and `tools/workflow/base.py`.
+PAL supports two primary tool patterns: direct `BaseTool` request/response tools and `WorkflowTool`
+for multi-step stateful workflows. A thin compatibility shim still exists in `tools/simple/base.py`
+for legacy imports, but new simple tools should inherit from `tools/shared/base_tool.py` directly.
 
-- **SimpleTool** (`SimpleTool`): single MCP call – request comes in, you build one prompt, call the model, return.
+- **BaseTool** (`BaseTool`): single MCP call – request comes in, you build one prompt, call the model, return.
   The base class handles schema generation, conversation threading, file loading, temperature bounds, retries,
-  and response formatting hooks.
+  and response formatting hooks. `SimpleTool` is just a compatibility alias for this path.
 - **WorkflowTool** (`WorkflowTool`): multi-step workflows driven by `BaseWorkflowMixin`. The tool accumulates
   findings across steps, forces Claude to pause between investigations, and optionally calls an expert model at
   the end. Use this whenever you need structured multi-step work (debug, code review, consensus, etc.).
 
-If you are unsure, compare `tools/chat.py` (SimpleTool) and `tools/consensus.py` (WorkflowTool) to see the patterns.
+If you are unsure, compare `tools/chat.py` (direct `BaseTool`) and `tools/consensus.py` (`WorkflowTool`) to see the patterns.
 
 ## 2. Common Responsibilities
 
@@ -40,14 +42,14 @@ failures, retries, and serialization. Override hooks like `get_default_temperatu
 
 1. **Define a request model** that inherits from `tools.shared.base_models.ToolRequest` to describe the fields and
    validation rules for your tool.
-2. **Implement the tool class** by inheriting from `SimpleTool` and overriding the required methods. Most tools can
-   rely on `SchemaBuilder` and the shared field constants already exposed on `SimpleTool`.
+2. **Implement the tool class** by inheriting from `BaseTool` and overriding the required methods. Most tools can
+   rely on `SchemaBuilder` and the shared field constants already exposed on `BaseTool`.
 
 ```python
 from pydantic import Field
 from systemprompts import CHAT_PROMPT
 from tools.shared.base_models import ToolRequest
-from tools.simple.base import SimpleTool
+from tools.shared.base_tool import BaseTool
 
 class ChatRequest(ToolRequest):
     prompt: str = Field(..., description="Your question or idea.")
@@ -57,7 +59,7 @@ class ChatRequest(ToolRequest):
         description="Absolute path to an existing directory where generated code can be saved.",
     )
 
-class ChatTool(SimpleTool):
+class ChatTool(BaseTool):
     def get_name(self) -> str:  # required by BaseTool
         return "chat"
 
@@ -73,7 +75,7 @@ class ChatTool(SimpleTool):
     def get_tool_fields(self) -> dict[str, dict[str, object]]:
         return {
             "prompt": {"type": "string", "description": "Your question."},
-            "absolute_file_paths": SimpleTool.FILES_FIELD,
+            "absolute_file_paths": BaseTool.FILES_FIELD,
             "working_directory_absolute_path": {
                 "type": "string",
                 "description": "Absolute path to an existing directory for generated code artifacts.",
@@ -88,7 +90,7 @@ class ChatTool(SimpleTool):
 ```
 
 Only implement `get_input_schema()` manually if you must preserve an existing schema contract (see
-`tools/chat.py` for an example). Otherwise `SimpleTool.get_input_schema()` merges your field definitions with the
+`tools/chat.py` for an example). Otherwise `BaseTool.get_input_schema()` merges your field definitions with the
 common parameters (temperature, model, continuation_id, etc.).
 
 ## 4. Implementing a Workflow Tool
