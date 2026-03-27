@@ -145,20 +145,23 @@ API keys to ensure the models are working and the server is able to communicate 
 
 #### Run All Simulator Tests
 ```bash
-# Run the complete test suite
+# Preferred: run via pytest directly
+uv run pytest simulator_tests/test_pytest_adapter.py
+
+# Legacy wrapper (delegates to pytest)
 uv run python communication_simulator_test.py
 
-# Run tests with verbose output
-uv run python communication_simulator_test.py --verbose
+# Verbose output
+uv run pytest simulator_tests/test_pytest_adapter.py -vv
 ```
 
 #### Quick Test Mode (Recommended for Time-Limited Testing)
 ```bash
 # Run quick test mode - 6 essential tests that provide maximum functionality coverage
-uv run python communication_simulator_test.py --quick
+uv run pytest simulator_tests/test_pytest_adapter.py -m quick
 
-# Run quick test mode with verbose output
-uv run python communication_simulator_test.py --quick --verbose
+# Legacy wrapper
+uv run python communication_simulator_test.py --quick
 ```
 
 **Quick mode runs these 6 essential tests:**
@@ -178,17 +181,16 @@ uv run python communication_simulator_test.py --quick --verbose
 # List all available tests
 uv run python communication_simulator_test.py --list-tests
 
-# RECOMMENDED: Run tests individually for better isolation and debugging
-uv run python communication_simulator_test.py --individual basic_conversation
-uv run python communication_simulator_test.py --individual content_validation
-uv run python communication_simulator_test.py --individual cross_tool_continuation
-uv run python communication_simulator_test.py --individual memory_validation
+# RECOMMENDED: Run tests individually via pytest -k filter
+uv run pytest simulator_tests/test_pytest_adapter.py -k basic_conversation
+uv run pytest simulator_tests/test_pytest_adapter.py -k content_validation
+uv run pytest simulator_tests/test_pytest_adapter.py -k cross_tool_continuation
 
 # Run multiple specific tests
-uv run python communication_simulator_test.py --tests basic_conversation content_validation
+uv run pytest simulator_tests/test_pytest_adapter.py -k "basic_conversation or content_validation"
 
-# Run individual test with verbose output for debugging
-uv run python communication_simulator_test.py --individual memory_validation --verbose
+# Legacy wrapper (still works)
+uv run python communication_simulator_test.py --individual basic_conversation --verbose
 ```
 
 Available simulator tests include:
