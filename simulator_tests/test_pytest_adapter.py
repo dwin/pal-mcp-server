@@ -20,8 +20,9 @@ def _make_test(name, test_cls):
     """Create a pytest test function that runs a simulator test class."""
 
     @pytest.mark.simulator
-    def test_func(simulator_env):
-        instance = test_cls(verbose=True)
+    def test_func(simulator_env, request):
+        verbose = bool(request.config.getoption("verbose"))
+        instance = test_cls(verbose=verbose)
         result = instance.run_test()
         assert result, f"Simulator test '{name}' failed"
 
