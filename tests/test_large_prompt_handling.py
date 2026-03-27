@@ -83,7 +83,11 @@ class TestLargePromptHandling:
         try:
             try:
                 result = await tool.execute(
-                    {"prompt": normal_prompt, "model": "gemini-3-flash-preview", "working_directory_absolute_path": temp_dir}
+                    {
+                        "prompt": normal_prompt,
+                        "model": "gemini-3-flash-preview",
+                        "working_directory_absolute_path": temp_dir,
+                    }
                 )
             except ToolExecutionError as exc:
                 output = json.loads(exc.payload if hasattr(exc, "payload") else str(exc))

@@ -80,7 +80,12 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini", "gemini-pro"],  # Gemini Pro for deep thinking
+                    "EXTENDED_REASONING": [
+                        "gemini-3.1-pro-preview",
+                        "gemini-3-pro-preview",
+                        "gemini",
+                        "gemini-pro",
+                    ],  # Gemini Pro for deep thinking
                     "FAST_RESPONSE": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Flash for speed
                     "BALANCED": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Flash as balanced
                 },
@@ -122,7 +127,12 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini", "gemini-pro"],  # Gemini Pro comes first
+                    "EXTENDED_REASONING": [
+                        "gemini-3.1-pro-preview",
+                        "gemini-3-pro-preview",
+                        "gemini",
+                        "gemini-pro",
+                    ],  # Gemini Pro comes first
                     "FAST_RESPONSE": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Prefer flash for speed
                     "BALANCED": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Prefer flash for balanced
                 },
@@ -136,7 +146,12 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini", "gemini-pro"],  # Gemini Pro comes first
+                    "EXTENDED_REASONING": [
+                        "gemini-3.1-pro-preview",
+                        "gemini-3-pro-preview",
+                        "gemini",
+                        "gemini-pro",
+                    ],  # Gemini Pro comes first
                     "FAST_RESPONSE": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Prefer flash for speed
                     "BALANCED": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Prefer flash for balanced
                 },

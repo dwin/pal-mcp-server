@@ -139,10 +139,19 @@ class TestAutoModeProviderSelection:
             fast_response = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
 
             # Should prefer Gemini now (based on new provider priority: Gemini before OpenAI)
-            assert extended_reasoning in ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-pro", "gemini"]  # Gemini 3.1 Pro Preview has higher priority now
+            assert extended_reasoning in [
+                "gemini-3.1-pro-preview",
+                "gemini-3-pro-preview",
+                "gemini-pro",
+                "gemini",
+            ]  # Gemini 3.1 Pro Preview has higher priority now
 
             # Should prefer Gemini for fast response
-            assert fast_response in ["gemini-3-flash-preview", "gemini-flash", "flash"]  # Gemini has higher priority now
+            assert fast_response in [
+                "gemini-3-flash-preview",
+                "gemini-flash",
+                "flash",
+            ]  # Gemini has higher priority now
 
         finally:
             # Restore original environment
@@ -317,7 +326,11 @@ class TestAutoModeProviderSelection:
             # Test that providers resolve aliases correctly
             test_cases = [
                 ("flash", ProviderType.GOOGLE, "gemini-3-flash-preview"),
-                ("gemini-pro", ProviderType.GOOGLE, "gemini-3.1-pro-preview"),  # "gemini-pro" resolves to gemini-3.1-pro-preview
+                (
+                    "gemini-pro",
+                    ProviderType.GOOGLE,
+                    "gemini-3.1-pro-preview",
+                ),  # "gemini-pro" resolves to gemini-3.1-pro-preview
                 ("mini", ProviderType.OPENAI, "gpt-5.4-mini"),  # "mini" now resolves to gpt-5.4-mini
                 ("o4mini", ProviderType.OPENAI, "o4-mini"),
                 ("grok", ProviderType.XAI, "grok-4"),
