@@ -162,8 +162,8 @@ def cleanup_providers():
     try:
         from providers import ModelProviderRegistry
 
-        registry = ModelProviderRegistry()
-        if hasattr(registry, "_initialized_providers"):
+        registry = getattr(ModelProviderRegistry, "_instance", None)
+        if registry and hasattr(registry, "_initialized_providers"):
             for provider in list(registry._initialized_providers.values()):
                 try:
                     if provider and hasattr(provider, "close"):
@@ -206,6 +206,7 @@ def register_signal_handlers():
         signal.signal(signal.SIGPIPE, signal.SIG_IGN)
     except (AttributeError, ValueError):
         pass
+
 
 # Log PAL_MCP_FORCE_ENV_OVERRIDE configuration for transparency
 if env_override_enabled():

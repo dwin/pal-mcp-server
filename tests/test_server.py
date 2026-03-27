@@ -37,6 +37,23 @@ class TestServerTools:
 
         assert "Received SIGTERM; starting graceful shutdown" in caplog.text
 
+    def test_cleanup_providers_does_not_create_registry_during_shutdown(self, monkeypatch):
+        """Test cleanup skips registry creation when nothing was initialized."""
+        from providers.registry import ModelProviderRegistry
+
+        original_instance = ModelProviderRegistry._instance
+        ModelProviderRegistry._instance = None
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("cleanup should not create a new registry instance")
+
+        monkeypatch.setattr(ModelProviderRegistry, "__new__", fail_if_called)
+
+        try:
+            server.cleanup_providers()
+        finally:
+            ModelProviderRegistry._instance = original_instance
+
     @pytest.mark.asyncio
     async def test_handle_call_tool_unknown(self):
         """Test calling an unknown tool"""
