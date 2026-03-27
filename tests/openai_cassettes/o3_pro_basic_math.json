@@ -23,9 +23,9 @@
               "role": "user"
             }
           ],
-          "model": "o3-pro",
+          "model": "gpt-5.4-pro",
           "reasoning": {
-            "effort": "medium"
+            "effort": "high"
           },
           "store": true
         },

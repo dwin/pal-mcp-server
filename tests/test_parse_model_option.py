@@ -36,8 +36,8 @@ class TestParseModelOption:
         assert model == "o3"
         assert option == "for"
 
-        model, option = parse_model_option("gemini-2.5-pro:against")
-        assert model == "gemini-2.5-pro"
+        model, option = parse_model_option("gemini-3.1-pro-preview:against")
+        assert model == "gemini-3.1-pro-preview"
         assert option == "against"
 
     def test_openrouter_unknown_suffix_parsed_as_option(self):

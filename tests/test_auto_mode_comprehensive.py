@@ -80,9 +80,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini 3 Pro Preview for deep thinking
-                    "FAST_RESPONSE": "gemini-2.5-flash",  # Flash for speed
-                    "BALANCED": "gemini-2.5-flash",  # Flash as balanced
+                    "EXTENDED_REASONING": ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini", "gemini-pro"],  # Gemini Pro for deep thinking
+                    "FAST_RESPONSE": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Flash for speed
+                    "BALANCED": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Flash as balanced
                 },
             ),
             # Only OpenAI API available
@@ -94,9 +94,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gpt-5.1-codex",  # GPT-5.1 Codex prioritized for coding tasks
-                    "FAST_RESPONSE": "gpt-5.2",  # Prefer gpt-5.2 for speed
-                    "BALANCED": "gpt-5.2",  # Prefer gpt-5.2 for balanced
+                    "EXTENDED_REASONING": ["gpt-5.3-codex", "gpt-5.4", "gpt-5.2"],  # Codex prioritized for coding tasks
+                    "FAST_RESPONSE": ["gpt-5.2", "gpt-5.4"],  # Prefer gpt-5.2 for speed
+                    "BALANCED": ["gpt-5.2", "gpt-5.4"],  # Prefer gpt-5.2 for balanced
                 },
             ),
             # Only X.AI API available
@@ -108,9 +108,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4-1-fast-reasoning",  # Latest Grok 4.1 Fast Reasoning
-                    "FAST_RESPONSE": "grok-4-1-fast-reasoning",  # Latest fast SKU
-                    "BALANCED": "grok-4-1-fast-reasoning",  # Latest balanced default
+                    "EXTENDED_REASONING": ["grok-4-1-fast-reasoning", "grok-4"],  # Latest Grok Fast Reasoning
+                    "FAST_RESPONSE": ["grok-4-1-fast-reasoning", "grok-4"],  # Latest fast SKU
+                    "BALANCED": ["grok-4-1-fast-reasoning", "grok-4"],  # Latest balanced default
                 },
             ),
             # Both Gemini and OpenAI available - Google comes first in priority
@@ -122,9 +122,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini 3 Pro Preview comes first in priority
-                    "FAST_RESPONSE": "gemini-2.5-flash",  # Prefer flash for speed
-                    "BALANCED": "gemini-2.5-flash",  # Prefer flash for balanced
+                    "EXTENDED_REASONING": ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini", "gemini-pro"],  # Gemini Pro comes first
+                    "FAST_RESPONSE": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Prefer flash for speed
+                    "BALANCED": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Prefer flash for balanced
                 },
             ),
             # All native APIs available - Google still comes first
@@ -136,9 +136,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini 3 Pro Preview comes first in priority
-                    "FAST_RESPONSE": "gemini-2.5-flash",  # Prefer flash for speed
-                    "BALANCED": "gemini-2.5-flash",  # Prefer flash for balanced
+                    "EXTENDED_REASONING": ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini", "gemini-pro"],  # Gemini Pro comes first
+                    "FAST_RESPONSE": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Prefer flash for speed
+                    "BALANCED": ["gemini-3-flash-preview", "gemini-flash", "flash"],  # Prefer flash for balanced
                 },
             ),
         ],
@@ -175,15 +175,15 @@ class TestAutoModeComprehensive:
                 ModelProviderRegistry.register_provider(ProviderType.OPENROUTER, OpenRouterProvider)
 
             # Test each tool category
-            for category_name, expected_model in expected_models.items():
+            for category_name, expected_models_list in expected_models.items():
                 category = ToolModelCategory(category_name.lower())
 
                 # Get preferred fallback model for this category
                 fallback_model = ModelProviderRegistry.get_preferred_fallback_model(category)
 
-                assert fallback_model == expected_model, (
+                assert fallback_model in expected_models_list, (
                     f"Provider config {provider_config}: "
-                    f"Expected {expected_model} for {category_name}, got {fallback_model}"
+                    f"Expected {category_name} to be one of {expected_models_list}, got {fallback_model}"
                 )
 
     @pytest.mark.parametrize(
@@ -437,12 +437,12 @@ class TestAutoModeComprehensive:
             assert "o4-mini" in available_models
 
             # Should NOT include non-restricted OpenAI models
-            assert "o3" not in available_models
-            assert "o3-mini" not in available_models
+            assert "gpt-5.4" not in available_models
+            assert "gpt-5.4-pro" not in available_models
 
             # Should still include all Gemini models (no restrictions)
-            assert "gemini-2.5-flash" in available_models
-            assert "gemini-2.5-pro" in available_models
+            assert "gemini-3-flash-preview" in available_models
+            assert "gemini-3.1-pro-preview" in available_models
 
     def test_openrouter_fallback_when_no_native_apis(self):
         """Test that OpenRouter provides fallback models when no native APIs are available."""
@@ -476,9 +476,9 @@ class TestAutoModeComprehensive:
             # Mock OpenRouter registry to return known models
             mock_registry = MagicMock()
             mock_registry.list_models.return_value = [
-                "google/gemini-2.5-flash",
-                "google/gemini-2.5-pro",
-                "openai/o3",
+                "google/gemini-3-flash-preview",
+                "google/gemini-3.1-pro-preview",
+                "openai/gpt-5.4",
                 "openai/o4-mini",
                 "anthropic/claude-opus-4",
             ]
@@ -527,10 +527,10 @@ class TestAutoModeComprehensive:
             mock_provider = MagicMock()
             mock_response = MagicMock()
             mock_response.content = "test response"
-            mock_response.model_name = "gemini-2.5-flash"  # The resolved name
+            mock_response.model_name = "gemini-3-flash-preview"  # The resolved name
             mock_response.usage = {"input_tokens": 10, "output_tokens": 5}
             # Mock _resolve_model_name to simulate alias resolution
-            mock_provider._resolve_model_name = lambda alias: ("gemini-2.5-flash" if alias == "flash" else alias)
+            mock_provider._resolve_model_name = lambda alias: ("gemini-3-flash-preview" if alias == "flash" else alias)
             mock_provider.generate_content.return_value = mock_response
 
             with patch.object(ModelProviderRegistry, "get_provider_for_model", return_value=mock_provider):

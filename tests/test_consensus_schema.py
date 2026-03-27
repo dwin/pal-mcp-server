@@ -13,7 +13,7 @@ def test_consensus_models_field_includes_available_models(monkeypatch):
     monkeypatch.setattr(
         tool,
         "_get_ranked_model_summaries",
-        MethodType(lambda self, limit=5: (["gemini-2.5-pro (score 100, 1.0M ctx, thinking)"], 1, False), tool),
+        MethodType(lambda self, limit=5: (["gemini-3.1-pro-preview (score 100, 1.0M ctx, thinking)"], 1, False), tool),
     )
     monkeypatch.setattr(tool, "_get_restriction_note", MethodType(lambda self: None, tool))
 

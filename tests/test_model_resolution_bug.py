@@ -3,8 +3,8 @@ Test to reproduce and fix the OpenRouter model name resolution bug.
 
 This test specifically targets the bug where:
 1. User specifies "gemini" in consensus tool
-2. System incorrectly resolves to "gemini-2.5-pro" instead of "google/gemini-2.5-pro"
-3. OpenRouter API returns "gemini-2.5-pro is not a valid model ID"
+2. System incorrectly resolves to "gemini-3.1-pro-preview" instead of "google/gemini-3.1-pro-preview"
+3. OpenRouter API returns "gemini-3.1-pro-preview is not a valid model ID"
 """
 
 from unittest.mock import Mock, patch
@@ -22,21 +22,21 @@ class TestModelResolutionBug:
         self.consensus_tool = ConsensusTool()
 
     def test_openrouter_registry_resolves_gemini_alias(self):
-        """Test that OpenRouter registry properly resolves 'gemini' to 'google/gemini-3-pro-preview'."""
+        """Test that OpenRouter registry properly resolves 'gemini' to 'google/gemini-3.1-pro-preview'."""
         # Test the registry directly
         provider = OpenRouterProvider("test_key")
 
         # Test alias resolution
         resolved_model_name = provider._resolve_model_name("gemini")
         assert (
-            resolved_model_name == "google/gemini-3-pro-preview"
-        ), f"Expected 'google/gemini-3-pro-preview', got '{resolved_model_name}'"
+            resolved_model_name == "google/gemini-3.1-pro-preview"
+        ), f"Expected 'google/gemini-3.1-pro-preview', got '{resolved_model_name}'"
 
         # Test that it also works with 'pro' alias
         resolved_pro = provider._resolve_model_name("pro")
         assert (
-            resolved_pro == "google/gemini-3-pro-preview"
-        ), f"Expected 'google/gemini-3-pro-preview', got '{resolved_pro}'"
+            resolved_pro == "google/gemini-3.1-pro-preview"
+        ), f"Expected 'google/gemini-3.1-pro-preview', got '{resolved_pro}'"
 
     # DELETED: test_provider_registry_returns_openrouter_for_gemini
     # This test had a flawed mock setup - it mocked get_provider() but called get_provider_for_model().
@@ -96,19 +96,19 @@ class TestModelResolutionBug:
             assert result["status"] == "success"
 
     def test_bug_reproduction_with_malformed_model_name(self):
-        """Test what happens when 'gemini-2.5-pro' (malformed) is passed to OpenRouter."""
+        """Test what happens when 'gemini-3.1-pro-preview' (malformed) is passed to OpenRouter."""
         provider = OpenRouterProvider("test_key")
 
-        # This should NOT resolve because 'gemini-2.5-pro' is not in the OpenRouter registry
-        resolved = provider._resolve_model_name("gemini-2.5-pro")
+        # This should NOT resolve because 'gemini-3.1-pro-preview' is not in the OpenRouter registry
+        resolved = provider._resolve_model_name("gemini-3.1-pro-preview")
 
-        # The bug: this returns "gemini-2.5-pro" as-is instead of resolving to proper name
+        # The bug: this returns "gemini-3.1-pro-preview" as-is instead of resolving to proper name
         # This is what causes the OpenRouter API to fail
-        assert resolved == "gemini-2.5-pro", f"Expected fallback to 'gemini-2.5-pro', got '{resolved}'"
+        assert resolved == "gemini-3.1-pro-preview", f"Expected fallback to 'gemini-3.1-pro-preview', got '{resolved}'"
 
         # Verify the registry doesn't have this malformed name
-        config = provider._registry.resolve("gemini-2.5-pro")
-        assert config is None, "Registry should not contain 'gemini-2.5-pro' - only 'google/gemini-2.5-pro'"
+        config = provider._registry.resolve("gemini-3.1-pro-preview")
+        assert config is None, "Registry should not contain 'gemini-3.1-pro-preview' - only 'google/gemini-3.1-pro-preview'"
 
 
 if __name__ == "__main__":

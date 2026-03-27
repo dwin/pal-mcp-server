@@ -19,23 +19,22 @@ class TestSupportedModelsAliases:
             assert isinstance(config.aliases, list), f"{model_name} aliases must be a list"
 
         # Test specific aliases
-        assert "flash" in provider.MODEL_CAPABILITIES["gemini-2.5-flash"].aliases
-        assert "pro" in provider.MODEL_CAPABILITIES["gemini-3-pro-preview"].aliases
-        assert "flash-2.0" in provider.MODEL_CAPABILITIES["gemini-2.0-flash"].aliases
-        assert "flash2" in provider.MODEL_CAPABILITIES["gemini-2.0-flash"].aliases
-        assert "flashlite" in provider.MODEL_CAPABILITIES["gemini-2.0-flash-lite"].aliases
-        assert "flash-lite" in provider.MODEL_CAPABILITIES["gemini-2.0-flash-lite"].aliases
+        assert "flash" in provider.MODEL_CAPABILITIES["gemini-3-flash-preview"].aliases
+        assert "gemini-3-pro" in provider.MODEL_CAPABILITIES["gemini-3-pro-preview"].aliases
+        assert "gemini-pro" in provider.MODEL_CAPABILITIES["gemini-3.1-pro-preview"].aliases
+        assert "gemini" in provider.MODEL_CAPABILITIES["gemini-3.1-pro-preview"].aliases
+        assert "flash3" in provider.MODEL_CAPABILITIES["gemini-3-flash-preview"].aliases
 
         # Test alias resolution
-        assert provider._resolve_model_name("flash") == "gemini-2.5-flash"
-        assert provider._resolve_model_name("pro") == "gemini-3-pro-preview"
-        assert provider._resolve_model_name("flash-2.0") == "gemini-2.0-flash"
-        assert provider._resolve_model_name("flash2") == "gemini-2.0-flash"
-        assert provider._resolve_model_name("flashlite") == "gemini-2.0-flash-lite"
+        assert provider._resolve_model_name("flash") == "gemini-3-flash-preview"
+        assert provider._resolve_model_name("gemini-3-pro") == "gemini-3-pro-preview"
+        assert provider._resolve_model_name("gemini-pro") == "gemini-3.1-pro-preview"
+        assert provider._resolve_model_name("gemini") == "gemini-3.1-pro-preview"
+        assert provider._resolve_model_name("flash3") == "gemini-3-flash-preview"
 
         # Test case insensitive resolution
-        assert provider._resolve_model_name("Flash") == "gemini-2.5-flash"
-        assert provider._resolve_model_name("PRO") == "gemini-3-pro-preview"
+        assert provider._resolve_model_name("Flash") == "gemini-3-flash-preview"
+        assert provider._resolve_model_name("GEMINI-PRO") == "gemini-3.1-pro-preview"
 
     def test_openai_provider_aliases(self):
         """Test OpenAI provider's alias structure."""
@@ -47,32 +46,23 @@ class TestSupportedModelsAliases:
             assert isinstance(config.aliases, list), f"{model_name} aliases must be a list"
 
         # Test specific aliases
-        # "mini" is now an alias for gpt-5-mini, not o4-mini
-        assert "mini" in provider.MODEL_CAPABILITIES["gpt-5-mini"].aliases
+        assert "mini" in provider.MODEL_CAPABILITIES["gpt-5.4-mini"].aliases
         assert "o4mini" in provider.MODEL_CAPABILITIES["o4-mini"].aliases
-        # o4-mini is no longer in its own aliases (removed self-reference)
-        assert "o3mini" in provider.MODEL_CAPABILITIES["o3-mini"].aliases
-        assert "o3pro" in provider.MODEL_CAPABILITIES["o3-pro"].aliases
-        assert "gpt4.1" in provider.MODEL_CAPABILITIES["gpt-4.1"].aliases
         assert "gpt5.2" in provider.MODEL_CAPABILITIES["gpt-5.2"].aliases
-        assert "gpt5.1-codex" in provider.MODEL_CAPABILITIES["gpt-5.1-codex"].aliases
-        assert "codex-mini" in provider.MODEL_CAPABILITIES["gpt-5.1-codex-mini"].aliases
+        assert "gpt5.3-codex" in provider.MODEL_CAPABILITIES["gpt-5.3-codex"].aliases
+        assert "codex" in provider.MODEL_CAPABILITIES["gpt-5.3-codex"].aliases
+        assert "nano" in provider.MODEL_CAPABILITIES["gpt-5.4-nano"].aliases
 
         # Test alias resolution
-        assert provider._resolve_model_name("mini") == "gpt-5-mini"  # mini -> gpt-5-mini now
-        assert provider._resolve_model_name("o3mini") == "o3-mini"
-        assert provider._resolve_model_name("o3pro") == "o3-pro"  # o3pro resolves to o3-pro
+        assert provider._resolve_model_name("mini") == "gpt-5.4-mini"
         assert provider._resolve_model_name("o4mini") == "o4-mini"
-        assert provider._resolve_model_name("gpt4.1") == "gpt-4.1"  # gpt4.1 resolves to gpt-4.1
         assert provider._resolve_model_name("gpt5.2") == "gpt-5.2"
-        assert provider._resolve_model_name("gpt5.1") == "gpt-5.2"
-        assert provider._resolve_model_name("gpt5.1-codex") == "gpt-5.1-codex"
-        assert provider._resolve_model_name("codex-mini") == "gpt-5.1-codex-mini"
+        assert provider._resolve_model_name("codex") == "gpt-5.3-codex"
+        assert provider._resolve_model_name("nano") == "gpt-5.4-nano"
 
         # Test case insensitive resolution
-        assert provider._resolve_model_name("Mini") == "gpt-5-mini"  # mini -> gpt-5-mini now
-        assert provider._resolve_model_name("O3MINI") == "o3-mini"
-        assert provider._resolve_model_name("Gpt5.1") == "gpt-5.2"
+        assert provider._resolve_model_name("Mini") == "gpt-5.4-mini"
+        assert provider._resolve_model_name("O4MINI") == "o4-mini"
 
     def test_xai_provider_aliases(self):
         """Test XAI provider's alias structure."""
@@ -129,18 +119,17 @@ class TestSupportedModelsAliases:
         # Test Gemini
         gemini_provider = GeminiModelProvider("test-key")
         gemini_models = gemini_provider.list_models(respect_restrictions=False)
-        assert "gemini-2.5-flash" in gemini_models
+        assert "gemini-3-flash-preview" in gemini_models
         assert "flash" in gemini_models
-        assert "gemini-3-pro-preview" in gemini_models
-        assert "pro" in gemini_models
+        assert "gemini-3.1-pro-preview" in gemini_models
+        assert "gemini-pro" in gemini_models
 
         # Test OpenAI
         openai_provider = OpenAIModelProvider("test-key")
         openai_models = openai_provider.list_models(respect_restrictions=False)
         assert "o4-mini" in openai_models
         assert "mini" in openai_models
-        assert "o3-mini" in openai_models
-        assert "o3mini" in openai_models
+        assert "o4mini" in openai_models
 
         # Test XAI
         xai_provider = XAIModelProvider("test-key")
@@ -166,10 +155,10 @@ class TestSupportedModelsAliases:
             lowercase=True,
             unique=True,
         )
-        assert "gemini-2.5-flash" in gemini_all
+        assert "gemini-3-flash-preview" in gemini_all
         assert "flash" in gemini_all
-        assert "gemini-3-pro-preview" in gemini_all
-        assert "pro" in gemini_all
+        assert "gemini-3.1-pro-preview" in gemini_all
+        assert "gemini-pro" in gemini_all
         # All should be lowercase
         assert all(model == model.lower() for model in gemini_all)
 
@@ -183,8 +172,7 @@ class TestSupportedModelsAliases:
         )
         assert "o4-mini" in openai_all
         assert "mini" in openai_all
-        assert "o3-mini" in openai_all
-        assert "o3mini" in openai_all
+        assert "o4mini" in openai_all
         # All should be lowercase
         assert all(model == model.lower() for model in openai_all)
 

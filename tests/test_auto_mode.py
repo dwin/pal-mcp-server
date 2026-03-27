@@ -112,7 +112,7 @@ class TestAutoMode:
 
         try:
             # Set to a specific model (not auto mode)
-            os.environ["DEFAULT_MODEL"] = "gemini-2.5-flash"
+            os.environ["DEFAULT_MODEL"] = "gemini-3-flash-preview"
             import config
 
             importlib.reload(config)
@@ -310,13 +310,13 @@ class TestAutoMode:
             assert "listmodels" in schema["description"]
 
             # Test normal mode
-            os.environ["DEFAULT_MODEL"] = "pro"
+            os.environ["DEFAULT_MODEL"] = "gemini-3-flash-preview"
             importlib.reload(config)
 
             schema = tool.get_model_field_schema()
             assert "enum" not in schema
             assert schema["type"] == "string"
-            assert "'pro'" in schema["description"]
+            assert "'gemini-3-flash-preview'" in schema["description"]
             assert "listmodels" in schema["description"]
 
         finally:

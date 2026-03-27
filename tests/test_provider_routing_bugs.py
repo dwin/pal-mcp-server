@@ -147,9 +147,9 @@ class TestProviderRoutingBugs:
             with pytest.raises(ValueError, match="Model 'flash' is not available"):
                 tool.get_model_provider("flash")
 
-            # Test: Request 'o3' model with no API keys - should fail gracefully
-            with pytest.raises(ValueError, match="Model 'o3' is not available"):
-                tool.get_model_provider("o3")
+            # Test: Request 'gpt-5.4' model with no API keys - should fail gracefully
+            with pytest.raises(ValueError, match="Model 'gpt-5.4' is not available"):
+                tool.get_model_provider("gpt-5.4")
 
             # Verify no providers were auto-registered
             registry = ModelProviderRegistry()
@@ -206,10 +206,10 @@ class TestProviderRoutingBugs:
             ), "When both Google and OpenRouter API keys are available, 'flash' should prefer Google provider"
 
             # OpenAI models should use OpenAI provider
-            o3_provider = tool.get_model_provider("o3")
+            o3_provider = tool.get_model_provider("o4-mini")
             assert (
                 o3_provider.get_provider_type() == ProviderType.OPENAI
-            ), "When both OpenAI and OpenRouter API keys are available, 'o3' should prefer OpenAI provider"
+            ), "When both OpenAI and OpenRouter API keys are available, 'o4-mini' should prefer OpenAI provider"
 
         finally:
             # Restore original environment
@@ -287,8 +287,8 @@ class TestOpenRouterAliasRestrictions:
 
             # Expected aliases that should resolve to models:
             # o3-mini -> openai/o3-mini
-            # pro -> google/gemini-2.5-pro
-            # flash -> google/gemini-2.5-flash
+            # pro -> google/gemini-3.1-pro-preview
+            # flash -> google/gemini-3-flash-preview
             # o4-mini -> openai/o4-mini
             # o3 -> openai/o3
             # gpt4.1 -> should not exist (expected to be filtered out)
@@ -353,7 +353,7 @@ class TestOpenRouterAliasRestrictions:
                 "openai/o3-mini",  # canonical
                 "anthropic/claude-opus-4.1",  # full name
                 "flash",  # alias
-                "google/gemini-2.5-flash",  # canonical
+                "google/gemini-3-flash-preview",  # canonical
             }
 
             available_model_names = set(available_models.keys())

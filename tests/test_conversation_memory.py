@@ -141,9 +141,12 @@ class TestConversationMemory:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_build_conversation_history(self, project_path):
         """Test building conversation history format with files and speaker identification"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         # Create real test files to test actual file embedding functionality
         main_file = project_path / "main.py"
@@ -370,9 +373,12 @@ class TestConversationFlow:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_dynamic_max_turns_configuration(self):
         """Test that all functions respect MAX_CONVERSATION_TURNS configuration"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         # This test ensures if we change MAX_CONVERSATION_TURNS, everything updates
 
@@ -501,9 +507,12 @@ class TestConversationFlow:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_conversation_with_files_and_context_preservation(self, mock_storage):
         """Test complete conversation flow with file tracking and context preservation"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         mock_client = Mock()
         mock_storage.return_value = mock_client
@@ -532,7 +541,7 @@ class TestConversationFlow:
             "I've analyzed your codebase structure.",
             files=["/project/src/main.py", "/project/src/utils.py"],
             tool_name="analyze",
-            model_name="gemini-2.5-flash",
+            model_name="gemini-3-flash-preview",
             model_provider="google",
         )
         assert success is True
@@ -550,7 +559,7 @@ class TestConversationFlow:
                     timestamp="2023-01-01T00:00:30Z",
                     files=["/project/src/main.py", "/project/src/utils.py"],
                     tool_name="analyze",
-                    model_name="gemini-2.5-flash",
+                    model_name="gemini-3-flash-preview",
                     model_provider="google",
                 )
             ],
@@ -595,7 +604,7 @@ class TestConversationFlow:
             "Test coverage analysis complete. Coverage is 85%.",
             files=["/project/tests/test_utils.py", "/project/coverage.html"],
             tool_name="analyze",
-            model_name="gemini-2.5-flash",
+            model_name="gemini-3-flash-preview",
             model_provider="google",
         )
         assert success is True
@@ -613,7 +622,7 @@ class TestConversationFlow:
                     timestamp="2023-01-01T00:00:30Z",
                     files=["/project/src/main.py", "/project/src/utils.py"],
                     tool_name="analyze",
-                    model_name="gemini-2.5-flash",
+                    model_name="gemini-3-flash-preview",
                     model_provider="google",
                 ),
                 ConversationTurn(
@@ -628,7 +637,7 @@ class TestConversationFlow:
                     timestamp="2023-01-01T00:02:30Z",
                     files=["/project/tests/test_utils.py", "/project/coverage.html"],
                     tool_name="analyze",
-                    model_name="gemini-2.5-flash",
+                    model_name="gemini-3-flash-preview",
                     model_provider="google",
                 ),
             ],
@@ -638,9 +647,9 @@ class TestConversationFlow:
         history, tokens = build_conversation_history(final_context)
 
         # Verify chronological order and speaker identification
-        assert "--- Turn 1 (gemini-2.5-flash using analyze via google) ---" in history
+        assert "--- Turn 1 (gemini-3-flash-preview using analyze via google) ---" in history
         assert "--- Turn 2 (Agent) ---" in history
-        assert "--- Turn 3 (gemini-2.5-flash using analyze via google) ---" in history
+        assert "--- Turn 3 (gemini-3-flash-preview using analyze via google) ---" in history
 
         # Verify all files are preserved in chronological order
         turn_1_files = "Files used in this turn: /project/src/main.py, /project/src/utils.py"
@@ -657,9 +666,9 @@ class TestConversationFlow:
         assert "Test coverage analysis complete. Coverage is 85%." in history
 
         # Verify chronological ordering (turn 1 appears before turn 2, etc.)
-        turn_1_pos = history.find("--- Turn 1 (gemini-2.5-flash using analyze via google) ---")
+        turn_1_pos = history.find("--- Turn 1 (gemini-3-flash-preview using analyze via google) ---")
         turn_2_pos = history.find("--- Turn 2 (Agent) ---")
-        turn_3_pos = history.find("--- Turn 3 (gemini-2.5-flash using analyze via google) ---")
+        turn_3_pos = history.find("--- Turn 3 (gemini-3-flash-preview using analyze via google) ---")
 
         assert turn_1_pos < turn_2_pos < turn_3_pos
 
@@ -714,9 +723,12 @@ class TestConversationFlow:
         import os
         import tempfile
 
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         from utils.conversation_memory import build_conversation_history
 
