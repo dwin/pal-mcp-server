@@ -42,6 +42,17 @@ from .test_token_allocation_validation import TokenAllocationValidationTest
 from .test_vision_capability import VisionCapabilityTest
 from .test_xai_models import XAIModelsTest
 
+# Quick-mode test names — the subset that provides maximum coverage quickly.
+# Matches the documented set in CLAUDE.md.
+QUICK_TESTS = {
+    "cross_tool_continuation",
+    "conversation_chain_validation",
+    "consensus_workflow_accurate",
+    "codereview_validation",
+    "planner_validation",
+    "token_allocation_validation",
+}
+
 # Test registry for dynamic loading
 TEST_REGISTRY = {
     "basic_conversation": BasicConversationTest,
@@ -81,6 +92,7 @@ TEST_REGISTRY = {
 }
 
 __all__ = [
+    "QUICK_TESTS",
     "BaseSimulatorTest",
     "BasicConversationTest",
     "ChatSimpleValidationTest",

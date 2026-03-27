@@ -2,6 +2,7 @@
 
 import importlib
 import os
+import tempfile
 from unittest.mock import patch
 
 import pytest
@@ -208,7 +209,7 @@ class TestAutoMode:
             try:
                 result = await tool.execute(
                     {
-                        "absolute_file_paths": ["/tmp/test.py"],
+                        "absolute_file_paths": [os.path.join(tempfile.gettempdir(), "test.py")],
                         "prompt": "Analyze this",
                         "model": "nonexistent-model-xyz",  # This model definitely doesn't exist
                     }

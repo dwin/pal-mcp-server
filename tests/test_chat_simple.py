@@ -6,6 +6,7 @@ This module contains unit tests to ensure that the Chat tool
 """
 
 import json
+import tempfile
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -59,7 +60,7 @@ class TestChatTool:
             "images": ["test.png"],
             "model": "anthropic/claude-opus-4.1",
             "temperature": 0.7,
-            "working_directory_absolute_path": "/tmp",  # Dummy absolute path
+            "working_directory_absolute_path": tempfile.gettempdir(),
         }
 
         request = ChatRequest(**request_data)
@@ -68,7 +69,7 @@ class TestChatTool:
         assert request.images == ["test.png"]
         assert request.model == "anthropic/claude-opus-4.1"
         assert request.temperature == 0.7
-        assert request.working_directory_absolute_path == "/tmp"
+        assert request.working_directory_absolute_path == tempfile.gettempdir()
 
     def test_required_fields(self):
         """Test that required fields are enforced"""
@@ -76,7 +77,7 @@ class TestChatTool:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError):
-            ChatRequest(model="anthropic/claude-opus-4.1", working_directory_absolute_path="/tmp")
+            ChatRequest(model="anthropic/claude-opus-4.1", working_directory_absolute_path=tempfile.gettempdir())
 
     def test_model_availability(self):
         """Test that model availability works"""
@@ -106,7 +107,7 @@ class TestChatTool:
         request = ChatRequest(
             prompt="Test prompt",
             absolute_file_paths=[],
-            working_directory_absolute_path="/tmp",
+            working_directory_absolute_path=tempfile.gettempdir(),
         )
 
         # Mock the system prompt and file handling
@@ -124,7 +125,7 @@ class TestChatTool:
     def test_response_formatting(self):
         """Test that response formatting works correctly"""
         response = "Test response content"
-        request = ChatRequest(prompt="Test", working_directory_absolute_path="/tmp")
+        request = ChatRequest(prompt="Test", working_directory_absolute_path=tempfile.gettempdir())
 
         formatted = self.tool.format_response(response, request)
 
@@ -303,7 +304,7 @@ class TestChatRequestModel:
 
     def test_default_values(self):
         """Test that default values work correctly"""
-        request = ChatRequest(prompt="Test", working_directory_absolute_path="/tmp")
+        request = ChatRequest(prompt="Test", working_directory_absolute_path=tempfile.gettempdir())
 
         assert request.prompt == "Test"
         assert request.absolute_file_paths == []  # Should default to empty list
@@ -313,7 +314,7 @@ class TestChatRequestModel:
         """Test that ChatRequest properly inherits from ToolRequest"""
         from tools.shared.base_models import ToolRequest
 
-        request = ChatRequest(prompt="Test", working_directory_absolute_path="/tmp")
+        request = ChatRequest(prompt="Test", working_directory_absolute_path=tempfile.gettempdir())
         assert isinstance(request, ToolRequest)
 
         # Should have inherited fields

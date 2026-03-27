@@ -84,7 +84,7 @@ class CodeReviewRequest(WorkflowRequest):
     issues_found: list[dict] = Field(
         default_factory=list, description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"]
     )
-    # Deprecated confidence field kept for backward compatibility only
+    # Exclude inherited confidence field — codereview uses get_confidence_level() instead
     confidence: Optional[str] = Field("low", exclude=True)
     review_validation_type: Optional[Literal["external", "internal"]] = Field(
         "external", description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS.get("review_validation_type", "")
