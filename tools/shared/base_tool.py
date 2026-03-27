@@ -354,10 +354,8 @@ class BaseTool(ABC):
         ]
 
         for field_name in file_fields:
-            if hasattr(request, field_name):
-                field_value = getattr(request, field_name)
-                if field_value is None:
-                    continue
+            field_value = self._get_field(request, field_name)
+            if field_value is not None:
 
                 # Handle both single paths and lists of paths
                 paths_to_check = field_value if isinstance(field_value, list) else [field_value]
