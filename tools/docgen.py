@@ -93,10 +93,6 @@ class DocgenTool(StatefulTool):
     - Modern documentation style appropriate for the language/platform
     """
 
-    def __init__(self):
-        super().__init__()
-        self.initial_request = None
-
     def get_name(self) -> str:
         return "docgen"
 
@@ -206,6 +202,7 @@ class DocgenTool(StatefulTool):
 
         return WorkflowSchemaBuilder.build_schema(
             tool_specific_fields=self.get_tool_fields(),
+            description_overrides=DOCGEN_FIELD_DESCRIPTIONS,
             required_fields=self.get_required_fields(),  # Include docgen-specific required fields
             model_field_schema=None,  # Exclude model field - docgen doesn't need external model selection
             auto_mode=False,  # Force non-auto mode to prevent model field addition

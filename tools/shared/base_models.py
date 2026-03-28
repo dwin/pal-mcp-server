@@ -11,9 +11,9 @@ Key Models:
 """
 
 import logging
-from typing import Optional
+from typing import ClassVar, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -97,19 +97,20 @@ class WorkflowRequest(BaseWorkflowRequest):
     """
     Extended request model for workflow-based tools.
 
-    This model extends ToolRequest with fields specific to the workflow
-    pattern, where tools perform multi-step work with forced pauses between steps.
+    This model extends BaseWorkflowRequest with work-tracking fields specific to
+    the workflow pattern, where tools perform multi-step work with forced pauses.
 
-    Used by: debug, precommit, codereview, refactor, thinkdeep, analyze
+    Used by: debug, precommit, codereview, refactor, thinkdeep, analyze, etc.
+
+    Subclasses can set ``_step_one_required_fields`` to declaratively validate
+    that certain fields are non-empty on step 1, avoiding repetitive validators.
     """
 
-    # Required workflow fields
-    step: str = Field(..., description=WORKFLOW_FIELD_DESCRIPTIONS["step"])
-    step_number: int = Field(..., ge=1, description=WORKFLOW_FIELD_DESCRIPTIONS["step_number"])
-    total_steps: int = Field(..., ge=1, description=WORKFLOW_FIELD_DESCRIPTIONS["total_steps"])
-    next_step_required: bool = Field(..., description=WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"])
+    # Declarative step-1 validation: list of (field_name, error_message) tuples.
+    # Subclasses override this to require specific fields on step 1.
+    _step_one_required_fields: ClassVar[list[tuple[str, str]]] = []
 
-    # Work tracking fields
+    # Work tracking fields (step/step_number/total_steps/next_step_required inherited from BaseWorkflowRequest)
     findings: str = Field(..., description=WORKFLOW_FIELD_DESCRIPTIONS["findings"])
     files_checked: list[str] = Field(default_factory=list, description=WORKFLOW_FIELD_DESCRIPTIONS["files_checked"])
     relevant_files: list[str] = Field(default_factory=list, description=WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"])
@@ -131,6 +132,15 @@ class WorkflowRequest(BaseWorkflowRequest):
             logger.warning(f"Field received string '{v}' instead of list, converting to empty list")
             return []
         return v
+
+    @model_validator(mode="after")
+    def _validate_step_one_requirements(self):
+        """Validate required fields on step 1 using declarative _step_one_required_fields."""
+        if self.step_number == 1 and self._step_one_required_fields:
+            for field_name, error_msg in self._step_one_required_fields:
+                if not getattr(self, field_name, None):
+                    raise ValueError(error_msg)
+        return self
 
 
 class ConsolidatedFindings(BaseModel):

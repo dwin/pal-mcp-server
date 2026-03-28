@@ -126,7 +126,6 @@ class SecauditTool(StatefulTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.security_config = {}
 
     def get_name(self) -> str:
@@ -349,56 +348,8 @@ class SecauditTool(StatefulTool):
         """Generate input schema using WorkflowSchemaBuilder with security audit-specific overrides."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Security audit workflow-specific field overrides
-        secaudit_field_overrides = {
-            "step": {
-                "type": "string",
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["step_number"],
-            },
-            "total_steps": {
-                "type": "integer",
-                "minimum": 1,
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["findings"],
-            },
-            "files_checked": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"],
-            },
-            "confidence": {
-                "type": "string",
-                "enum": ["exploring", "low", "medium", "high", "very_high", "almost_certain", "certain"],
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["confidence"],
-            },
-            "issues_found": {
-                "type": "array",
-                "items": {"type": "object"},
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["images"],
-            },
-            # Security audit-specific fields (for step 1)
+        # Security audit-specific fields
+        secaudit_fields = {
             "security_scope": {
                 "type": "string",
                 "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["security_scope"],
@@ -428,9 +379,9 @@ class SecauditTool(StatefulTool):
             },
         }
 
-        # Use WorkflowSchemaBuilder with security audit-specific tool fields
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=secaudit_field_overrides,
+            tool_specific_fields=secaudit_fields,
+            description_overrides=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),
