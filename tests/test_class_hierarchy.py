@@ -406,6 +406,61 @@ class TestRequestAccessorOverrides:
         )
 
 
+class TestConcreteToolInstantiation:
+    """Verify concrete tools can be instantiated and produce schemas."""
+
+    def test_simple_tool_instantiation_and_schema(self):
+        """A simple tool should instantiate and generate a valid input schema."""
+        from tools.chat import ChatTool
+
+        tool = ChatTool()
+        schema = tool.get_input_schema()
+        assert isinstance(schema, dict)
+        assert "properties" in schema
+        assert schema.get("type") == "object"
+        # Chat tool should have a 'prompt' property
+        assert "prompt" in schema["properties"]
+
+    def test_workflow_tool_instantiation_and_schema(self):
+        """A workflow tool should instantiate and generate a valid input schema."""
+        from tools.debug import DebugIssueTool
+
+        tool = DebugIssueTool()
+        schema = tool.get_input_schema()
+        assert isinstance(schema, dict)
+        assert "properties" in schema
+        assert schema.get("type") == "object"
+        # Workflow tools should have standard workflow fields
+        for field in ["step", "step_number", "total_steps", "next_step_required", "findings"]:
+            assert field in schema["properties"], f"Workflow schema missing field: {field}"
+
+    def test_stateful_tool_execute_delegates_to_execute_workflow(self):
+        """StatefulTool.execute() must delegate to execute_workflow(), not BaseTool.execute()."""
+        from tools.workflow.stateful_tool import StatefulTool
+
+        source = inspect.getsource(StatefulTool.execute)
+        assert "execute_workflow" in source, "StatefulTool.execute() should delegate to execute_workflow()"
+        # Should NOT call super().execute() or BaseTool.execute()
+        assert "super().execute" not in source, "StatefulTool.execute() should not delegate to BaseTool.execute()"
+
+    def test_workflow_tool_override_signatures_match(self):
+        """Concrete workflow tools' overridden methods must match StatefulTool signatures."""
+        from tools.debug import DebugIssueTool
+        from tools.workflow.stateful_tool import StatefulTool
+
+        # get_required_actions is the key abstract method
+        parent_sig = inspect.signature(StatefulTool.get_required_actions)
+        child_sig = inspect.signature(DebugIssueTool.get_required_actions)
+
+        parent_params = list(parent_sig.parameters.keys())
+        child_params = list(child_sig.parameters.keys())
+
+        assert parent_params == child_params, (
+            f"DebugIssueTool.get_required_actions signature {child_params} "
+            f"doesn't match StatefulTool {parent_params}"
+        )
+
+
 class TestExtractedUtilityModules:
     """Verify utility modules were properly extracted."""
 

@@ -555,8 +555,11 @@ class StatefulTool(BaseTool):
         is_final_step = not self.get_request_next_step_required(request)
         step_number = self.get_request_step_number(request)
 
+        # Only overwrite model context if provided in arguments (in-process tests);
+        # otherwise keep the context already resolved in execute_workflow().
         model_context = arguments.get("_model_context")
-        self._model_context = model_context
+        if model_context is not None:
+            self._model_context = model_context
 
         self._embedded_file_content = ""
         self._file_reference_note = ""
