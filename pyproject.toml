@@ -28,7 +28,7 @@ dev = [
 include = ["tools*", "providers*", "systemprompts*", "utils*", "conf*", "clink*"]
 
 [tool.setuptools]
-py-modules = ["server", "config"]
+py-modules = ["server", "config", "shared_types"]
 
 [tool.setuptools.package-data]
 "*" = [
