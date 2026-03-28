@@ -18,8 +18,12 @@ Available workflow tools:
 from .schema_builders import WorkflowSchemaBuilder
 from .stateful_tool import StatefulTool
 
-# Backward compatibility aliases
+# Backward compatibility alias — the old WorkflowTool(BaseTool, BaseWorkflowMixin)
+# pattern is replaced by inheriting from StatefulTool directly.
+# BaseWorkflowMixin is intentionally NOT aliased here because
+# StatefulTool already inherits from BaseTool; aliasing it as a
+# "mixin" would cause MRO errors if someone tried the old
+# `class X(BaseTool, BaseWorkflowMixin)` pattern.
 WorkflowTool = StatefulTool
-BaseWorkflowMixin = StatefulTool
 
-__all__ = ["StatefulTool", "WorkflowTool", "WorkflowSchemaBuilder", "BaseWorkflowMixin"]
+__all__ = ["StatefulTool", "WorkflowTool", "WorkflowSchemaBuilder"]
