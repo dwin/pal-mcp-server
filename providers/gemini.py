@@ -2,14 +2,12 @@
 
 import base64
 import logging
-from typing import TYPE_CHECKING, ClassVar, Optional
-
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+from typing import ClassVar, Optional
 
 from google import genai
 from google.genai import types
 
+from shared_types import ToolModelCategory
 from utils.env import get_env
 from utils.image_utils import validate_image
 
@@ -453,7 +451,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
             logger.error(f"Error processing image {image_path}: {e}")
             return None
 
-    def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
+    def get_preferred_model(self, category: ToolModelCategory, allowed_models: list[str]) -> Optional[str]:
         """Get Gemini's preferred model for a given category from allowed models.
 
         Args:
@@ -463,7 +461,6 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         Returns:
             Preferred model name or None
         """
-        from tools.models import ToolModelCategory
 
         if not allowed_models:
             return None

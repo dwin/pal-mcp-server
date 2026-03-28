@@ -14,14 +14,12 @@ Key Features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
 from config import TEMPERATURE_CREATIVE
+from shared_types import ToolModelCategory
 from systemprompts import THINKDEEP_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
@@ -123,10 +121,8 @@ class ThinkDeepTool(WorkflowTool):
         """Return the tool description"""
         return self.description
 
-    def get_model_category(self) -> "ToolModelCategory":
+    def get_model_category(self) -> ToolModelCategory:
         """Return the model category for this tool"""
-        from tools.models import ToolModelCategory
-
         return ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):

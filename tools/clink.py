@@ -15,7 +15,8 @@ from clink import get_registry
 from clink.agents import AgentOutput, CLIAgentError, create_agent
 from clink.models import ResolvedCLIClient, ResolvedCLIRole
 from config import TEMPERATURE_BALANCED
-from tools.models import ToolModelCategory, ToolOutput
+from shared_types import ToolModelCategory
+from tools.models import ToolOutput
 from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS
 from tools.shared.exceptions import ToolExecutionError
 from tools.simple.base import SchemaBuilder, SimpleTool

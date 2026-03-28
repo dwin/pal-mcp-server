@@ -16,14 +16,12 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import Field, model_validator
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
 from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import PRECOMMIT_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
@@ -147,10 +145,8 @@ class PrecommitTool(WorkflowTool):
     def get_default_temperature(self) -> float:
         return TEMPERATURE_ANALYTICAL
 
-    def get_model_category(self) -> "ToolModelCategory":
+    def get_model_category(self) -> ToolModelCategory:
         """Precommit requires thorough analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
         return ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):

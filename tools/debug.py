@@ -16,14 +16,12 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
 from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import DEBUG_ISSUE_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
@@ -130,10 +128,8 @@ class DebugIssueTool(WorkflowTool):
     def get_default_temperature(self) -> float:
         return TEMPERATURE_ANALYTICAL
 
-    def get_model_category(self) -> "ToolModelCategory":
+    def get_model_category(self) -> ToolModelCategory:
         """Debug requires deep analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
         return ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):

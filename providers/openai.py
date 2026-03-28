@@ -1,10 +1,9 @@
 """OpenAI model provider implementation."""
 
 import logging
-from typing import TYPE_CHECKING, ClassVar, Optional
+from typing import ClassVar, Optional
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+from shared_types import ToolModelCategory
 
 from .openai_compatible import OpenAICompatibleProvider
 from .registries.openai import OpenAIModelRegistry
@@ -90,7 +89,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
     # Provider preferences
     # ------------------------------------------------------------------
 
-    def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
+    def get_preferred_model(self, category: ToolModelCategory, allowed_models: list[str]) -> Optional[str]:
         """Get OpenAI's preferred model for a given category from allowed models.
 
         Args:
@@ -100,7 +99,6 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
         Returns:
             Preferred model name or None
         """
-        from tools.models import ToolModelCategory
 
         if not allowed_models:
             return None
