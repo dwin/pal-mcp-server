@@ -168,7 +168,10 @@ class CursorAgent(BaseCLIAgent):
             )
         finally:
             if output_file_path is not None and self.client.output_to_file and self.client.output_to_file.cleanup:
-                output_file_path.unlink(missing_ok=True)
+                try:
+                    output_file_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def _build_command(
         self,
