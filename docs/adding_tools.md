@@ -47,7 +47,7 @@ failures, retries, and serialization. Override hooks like `get_default_temperatu
 from pydantic import Field
 from systemprompts import CHAT_PROMPT
 from tools.shared.base_models import ToolRequest
-from tools.simple.base import SimpleTool
+from tools.shared.base_tool import BaseTool
 
 class ChatRequest(ToolRequest):
     prompt: str = Field(..., description="Your question or idea.")
@@ -57,7 +57,7 @@ class ChatRequest(ToolRequest):
         description="Absolute path to an existing directory where generated code can be saved.",
     )
 
-class ChatTool(SimpleTool):
+class ChatTool(BaseTool):
     def get_name(self) -> str:  # required by BaseTool
         return "chat"
 
@@ -107,12 +107,12 @@ Workflow tools extend `WorkflowTool`, which mixes in `BaseWorkflowMixin` for ste
 from pydantic import Field
 from systemprompts import CONSENSUS_PROMPT
 from tools.shared.base_models import WorkflowRequest
-from tools.workflow.base import WorkflowTool
+from tools.workflow.stateful_tool import StatefulTool
 
 class ConsensusRequest(WorkflowRequest):
     models: list[dict] = Field(..., description="Models to consult (with optional stance).")
 
-class ConsensusTool(WorkflowTool):
+class ConsensusTool(StatefulTool):
     def get_name(self) -> str:
         return "consensus"
 

@@ -86,8 +86,8 @@ class TestInheritanceChain:
         direct_bases = StatefulTool.__bases__
         assert direct_bases == (BaseTool,), f"StatefulTool should inherit only from BaseTool, got {direct_bases}"
 
-    def test_max_inheritance_depth_is_three(self):
-        """No concrete tool should have more than 3 levels: object → BaseTool → [StatefulTool →] ConcreteTool."""
+    def test_max_inheritance_depth(self):
+        """No concrete tool should exceed 4 classes in MRO (excluding object): ConcreteTool + StatefulTool + BaseTool + ABC."""
 
         from tools import (
             AnalyzeTool,
@@ -297,6 +297,20 @@ class TestBackwardCompatAliases:
             "it would cause MRO errors with class X(BaseTool, BaseWorkflowMixin)"
         )
 
+    def test_old_files_removed(self):
+        """Old hierarchy files must be deleted, not left as dead code."""
+        import os
+
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        old_files = [
+            "tools/simple/base.py",
+            "tools/workflow/base.py",
+            "tools/workflow/workflow_mixin.py",
+        ]
+        for rel_path in old_files:
+            full_path = os.path.join(repo_root, rel_path)
+            assert not os.path.exists(full_path), f"Dead file should be removed: {rel_path}"
+
     def test_no_mro_error_with_workflow_tool_alias(self):
         """Using WorkflowTool alias as base class should work without MRO issues."""
         from tools.workflow import WorkflowTool
@@ -361,6 +375,36 @@ class TestRequestAccessorOverrides:
             "not req.get_request_*() directly. Violations:\n" + "\n".join(f"  - {v}" for v in violations)
         )
 
+    def test_stateful_tool_has_no_direct_req_calls(self):
+        """StatefulTool must not call req.get_request_*() directly.
+
+        StatefulTool uses its own accessor methods, not the request_helpers module.
+        This test ensures no one accidentally introduces direct req.* calls.
+        """
+        import ast
+
+        from tools.workflow.stateful_tool import StatefulTool
+
+        source = inspect.getsource(StatefulTool)
+        tree = ast.parse(source)
+
+        violations = []
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            method_name = node.name
+
+            for child in ast.walk(node):
+                if isinstance(child, ast.Attribute) and isinstance(child.value, ast.Name):
+                    if child.value.id == "req" and (
+                        child.attr.startswith("get_request_") or child.attr.startswith("set_request_")
+                    ):
+                        violations.append(f"{method_name}() calls req.{child.attr}() directly")
+
+        assert not violations, "StatefulTool should not use req.get_request_*() directly. " "Violations:\n" + "\n".join(
+            f"  - {v}" for v in violations
+        )
+
 
 class TestExtractedUtilityModules:
     """Verify utility modules were properly extracted."""
@@ -397,6 +441,8 @@ class TestExtractedUtilityModules:
         """tools.shared.validation should exist with extracted functions."""
         from tools.shared import validation
 
-        assert hasattr(validation, "validate_file_paths") or hasattr(
-            validation, "check_prompt_size"
-        ), "validation module should have validation functions"
+        for fn_name in [
+            "validate_file_paths",
+            "check_prompt_size",
+        ]:
+            assert hasattr(validation, fn_name), f"validation module missing function: {fn_name}"
