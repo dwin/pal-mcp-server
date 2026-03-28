@@ -58,7 +58,9 @@ class TestServerTools:
         from providers.registry import ModelProviderRegistry
 
         original_instance = ModelProviderRegistry._instance
+        original_done = server._provider_cleanup_done
         ModelProviderRegistry._instance = None
+        server._provider_cleanup_done = False
 
         def fail_if_called(*args, **kwargs):
             raise AssertionError("cleanup should not create a new registry instance")
@@ -69,6 +71,23 @@ class TestServerTools:
             server.cleanup_providers()
         finally:
             ModelProviderRegistry._instance = original_instance
+            server._provider_cleanup_done = original_done
+
+    def test_cleanup_providers_is_idempotent(self):
+        """Test that cleanup_providers only runs once even when called multiple times."""
+        original_done = server._provider_cleanup_done
+        server._provider_cleanup_done = False
+
+        try:
+            # First call should run cleanup
+            server.cleanup_providers()
+            assert server._provider_cleanup_done is True
+
+            # Second call should be a no-op (flag already set)
+            server.cleanup_providers()
+            assert server._provider_cleanup_done is True
+        finally:
+            server._provider_cleanup_done = original_done
 
     @pytest.mark.asyncio
     async def test_handle_call_tool_unknown(self):

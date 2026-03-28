@@ -155,15 +155,24 @@ except Exception as e:
 logger = logging.getLogger(__name__)
 
 _provider_cleanup_registered = False
+_provider_cleanup_done = False
 
 
 def cleanup_providers():
     """Clean up registered providers without creating a registry during shutdown.
 
-    This helper is safe to call multiple times. If provider startup never created
-    a registry instance, cleanup is skipped quietly so interpreter teardown does
-    not instantiate new objects or emit late shutdown logging.
+    Called from both the atexit handler and the run() finally block.  The guard
+    flag ensures providers are only closed once even when both paths fire.
+
+    If provider startup never created a registry instance, cleanup is skipped
+    quietly so interpreter teardown does not instantiate new objects or emit
+    late shutdown logging.
     """
+    global _provider_cleanup_done
+    if _provider_cleanup_done:
+        return
+    _provider_cleanup_done = True
+
     try:
         from providers.registry import ModelProviderRegistry
 
