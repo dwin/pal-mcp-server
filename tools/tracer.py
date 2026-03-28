@@ -20,14 +20,12 @@ structural relationship analysis, architectural understanding, and code comprehe
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
 from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import TRACER_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
@@ -166,10 +164,8 @@ class TracerTool(WorkflowTool):
     def get_default_temperature(self) -> float:
         return TEMPERATURE_ANALYTICAL
 
-    def get_model_category(self) -> "ToolModelCategory":
+    def get_model_category(self) -> ToolModelCategory:
         """Tracer requires analytical reasoning for code analysis"""
-        from tools.models import ToolModelCategory
-
         return ToolModelCategory.EXTENDED_REASONING
 
     def requires_model(self) -> bool:

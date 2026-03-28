@@ -12,7 +12,8 @@ from typing import Any, Optional
 from mcp.types import TextContent
 
 from clink import get_registry
-from tools.models import ToolModelCategory, ToolOutput
+from shared_types import ToolModelCategory
+from tools.models import ToolOutput
 from tools.shared.base_models import ToolRequest
 from tools.shared.base_tool import BaseTool
 

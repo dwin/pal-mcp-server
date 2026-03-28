@@ -21,14 +21,12 @@ architectural decisions, and breaking down large problems into manageable steps.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import Field, field_validator
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
 from config import TEMPERATURE_BALANCED
+from shared_types import ToolModelCategory
 from systemprompts import PLANNER_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
@@ -139,10 +137,8 @@ class PlannerTool(WorkflowTool):
     def get_default_temperature(self) -> float:
         return TEMPERATURE_BALANCED
 
-    def get_model_category(self) -> "ToolModelCategory":
+    def get_model_category(self) -> ToolModelCategory:
         """Planner requires deep analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
         return ToolModelCategory.EXTENDED_REASONING
 
     def requires_model(self) -> bool:

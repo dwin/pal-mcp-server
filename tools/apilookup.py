@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import Field
 
 from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from tools.shared.base_models import ToolRequest
 from tools.simple.base import SimpleTool
-
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
 
 LOOKUP_FIELD_DESCRIPTIONS = {
     "prompt": "The API, SDK, library, framework, or technology you need current documentation, version info, breaking changes, or migration guidance for.",
@@ -89,8 +86,6 @@ class LookupTool(SimpleTool):
         return False
 
     def get_model_category(self) -> ToolModelCategory:
-        from tools.models import ToolModelCategory
-
         return ToolModelCategory.FAST_RESPONSE
 
     def get_request_model(self):

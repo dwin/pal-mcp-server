@@ -2,18 +2,11 @@
 Data models for tool responses and interactions
 """
 
-from enum import Enum
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-
-class ToolModelCategory(Enum):
-    """Categories for tool model selection based on requirements."""
-
-    EXTENDED_REASONING = "extended_reasoning"  # Requires deep thinking capabilities
-    FAST_RESPONSE = "fast_response"  # Speed and cost efficiency preferred
-    BALANCED = "balanced"  # Balance of capability and performance
+from shared_types import ToolModelCategory  # noqa: F401 - re-exported for backward compatibility
 
 
 class ContinuationOffer(BaseModel):

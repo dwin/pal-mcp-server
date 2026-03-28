@@ -18,10 +18,10 @@ from mcp.types import TextContent
 
 if TYPE_CHECKING:
     from providers.shared import ModelCapabilities
-    from tools.models import ToolModelCategory
 
 from config import MCP_PROMPT_SIZE_LIMIT
 from providers import ModelProvider, ModelProviderRegistry
+from shared_types import ToolModelCategory
 from utils import estimate_tokens
 from utils.conversation_memory import (
     ConversationTurn,
@@ -623,7 +623,7 @@ class BaseTool(ABC):
         """
         return "medium"  # Default to medium thinking for better reasoning
 
-    def get_model_category(self) -> "ToolModelCategory":
+    def get_model_category(self) -> ToolModelCategory:
         """
         Return the model category for this tool.
 
@@ -634,8 +634,6 @@ class BaseTool(ABC):
         Returns:
             ToolModelCategory: Category that influences model selection
         """
-        from tools.models import ToolModelCategory
-
         return ToolModelCategory.BALANCED
 
     @abstractmethod

@@ -17,16 +17,13 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
-
-from pydantic import Field, model_validator
-
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+from typing import Any
 
 from mcp.types import TextContent
+from pydantic import Field, model_validator
 
 from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import CONSENSUS_PROMPT
 from tools.shared.base_models import ConsolidatedFindings, WorkflowRequest
 from utils.conversation_memory import MAX_CONVERSATION_TURNS, create_thread, get_thread
@@ -180,8 +177,6 @@ of the evidence, even when it strongly points in one direction.""",
 
     def get_model_category(self) -> ToolModelCategory:
         """Consensus workflow requires extended reasoning"""
-        from tools.models import ToolModelCategory
-
         return ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):

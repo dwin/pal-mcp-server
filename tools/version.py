@@ -24,7 +24,8 @@ except ImportError:
 from mcp.types import TextContent
 
 from config import __author__, __updated__, __version__
-from tools.models import ToolModelCategory, ToolOutput
+from shared_types import ToolModelCategory
+from tools.models import ToolOutput
 from tools.shared.base_models import ToolRequest
 from tools.shared.base_tool import BaseTool
 
