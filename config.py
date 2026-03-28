@@ -115,28 +115,15 @@ DEFAULT_CONSENSUS_MAX_INSTANCES_PER_COMBINATION = 2
 
 
 def _calculate_mcp_prompt_limit() -> int:
+    """Calculate MCP prompt size limit based on MAX_MCP_OUTPUT_TOKENS.
+
+    Allocates 60% of the token budget for input, at ~4 chars/token.
+    Falls back to 60 000 characters (~15k tokens of a 25k total budget).
     """
-    Calculate MCP prompt size limit based on MAX_MCP_OUTPUT_TOKENS environment variable.
-
-    Returns:
-        Maximum character count for user input prompts
-    """
-    # Check for Claude's MAX_MCP_OUTPUT_TOKENS environment variable
-    max_tokens_str = get_env("MAX_MCP_OUTPUT_TOKENS")
-
-    if max_tokens_str:
-        try:
-            max_tokens = int(max_tokens_str)
-            # Allocate 60% of tokens for input, convert to characters (~4 chars per token)
-            input_token_budget = int(max_tokens * 0.6)
-            character_limit = input_token_budget * 4
-            return character_limit
-        except (ValueError, TypeError):
-            # Fall back to default if MAX_MCP_OUTPUT_TOKENS is not a valid integer
-            pass
-
-    # Default fallback: 60,000 characters (equivalent to ~15k tokens input of 25k total)
-    return 60_000
+    try:
+        return int(int(get_env("MAX_MCP_OUTPUT_TOKENS")) * 0.6) * 4
+    except (ValueError, TypeError):
+        return 60_000
 
 
 MCP_PROMPT_SIZE_LIMIT = _calculate_mcp_prompt_limit()
