@@ -89,7 +89,7 @@ def _create_mock_provider(model_name="gemini-3-flash-preview", context_window=1_
     """
     from unittest.mock import Mock
 
-    from providers.shared import ModelCapabilities, RangeTemperatureConstraint
+    from providers.shared import STANDARD_RANGE, ModelCapabilities
 
     mock_provider = Mock()
 
@@ -103,7 +103,7 @@ def _create_mock_provider(model_name="gemini-3-flash-preview", context_window=1_
         supports_system_prompts=True,
         supports_streaming=True,
         supports_function_calling=True,
-        temperature_constraint=RangeTemperatureConstraint(0.0, 2.0, 0.7),
+        temperature_constraint=STANDARD_RANGE,
     )
 
     mock_provider.get_capabilities.return_value = mock_capabilities

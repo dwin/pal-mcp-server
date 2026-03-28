@@ -41,7 +41,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
         canonical_name: str,
         requested_name: Optional[str] = None,
     ) -> Optional[ModelCapabilities]:
-        """Look up OpenAI capabilities from built-ins or the custom registry."""
+        """Look up OpenAI capabilities from built-ins or the OpenRouter fallback registry."""
 
         self._ensure_registry()
         builtin = super()._lookup_capabilities(canonical_name, requested_name)
@@ -51,14 +51,11 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
         try:
             from .registries.openrouter import OpenRouterModelRegistry
 
-            registry = OpenRouterModelRegistry()
-            config = registry.get_model_config(canonical_name)
-
+            config = OpenRouterModelRegistry().get_model_config(canonical_name)
             if config and config.provider == ProviderType.OPENAI:
                 return config
-
         except Exception as exc:  # pragma: no cover - registry failures are non-critical
-            logger.debug(f"Could not resolve custom OpenAI model '{canonical_name}': {exc}")
+            logger.debug("Could not resolve custom OpenAI model '%s': %s", canonical_name, exc)
 
         return None
 

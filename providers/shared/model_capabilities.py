@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .provider_type import ProviderType
-from .temperature import RangeTemperatureConstraint, TemperatureConstraint
+from .temperature import STANDARD_RANGE, TemperatureConstraint
 
 __all__ = ["ModelCapabilities"]
 
@@ -60,9 +60,7 @@ class ModelCapabilities:
 
     # Additional attributes
     max_image_size_mb: float = 0.0
-    temperature_constraint: TemperatureConstraint = field(
-        default_factory=lambda: RangeTemperatureConstraint(0.0, 2.0, 0.3)
-    )
+    temperature_constraint: TemperatureConstraint = field(default_factory=lambda: STANDARD_RANGE)
 
     def get_effective_temperature(self, requested_temperature: float) -> Optional[float]:
         """Return the temperature that should be sent to the provider.
