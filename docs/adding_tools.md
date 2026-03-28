@@ -33,8 +33,8 @@ Regardless of architecture, subclasses of `BaseTool` must provide:
   `prepare_chat_style_prompt` or `build_standard_prompt`.
 
 The base class already handles model selection (`ToolModelCategory`), conversation memory, token budgeting, safety
-failures, retries, and serialization. Override hooks like `get_default_temperature`, `get_model_category`, or
-`format_response` only when you need behaviour different from the defaults.
+failures, retries, and serialization. Set the `MODEL_CATEGORY` class attribute to change model selection behaviour,
+and override hooks like `format_response` only when you need behaviour different from the defaults.
 
 ## 3. Implementing a Simple Tool
 

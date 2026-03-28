@@ -137,7 +137,6 @@ class BaseTool(ABC):
         # Cache tool metadata at initialization to avoid repeated calls
         self.name = self.get_name()
         self.description = self.get_description()
-        self.default_temperature = self.get_default_temperature()
         # Tool initialization complete
 
     @abstractmethod
@@ -551,13 +550,12 @@ class BaseTool(ABC):
         """
         Return the default temperature setting for this tool.
 
-        Override this method to set tool-specific temperature defaults.
-        Lower values (0.0-0.3) for analytical tasks, higher (0.7-1.0) for creative tasks.
-
         Returns:
-            float: Default temperature between 0.0 and 1.0
+            float: Default temperature (1.0)
         """
-        return 0.5
+        from config import DEFAULT_TEMPERATURE
+
+        return DEFAULT_TEMPERATURE
 
     def wants_line_numbers_by_default(self) -> bool:
         """
@@ -583,18 +581,18 @@ class BaseTool(ABC):
         """
         return "medium"  # Default to medium thinking for better reasoning
 
+    MODEL_CATEGORY = ToolModelCategory.BALANCED
+
     def get_model_category(self) -> ToolModelCategory:
         """
         Return the model category for this tool.
 
-        Model category influences which model is selected in auto mode.
-        Override to specify whether your tool needs extended reasoning,
-        fast response, or balanced capabilities.
+        Tools override by setting the MODEL_CATEGORY class attribute.
 
         Returns:
             ToolModelCategory: Category that influences model selection
         """
-        return ToolModelCategory.BALANCED
+        return self.MODEL_CATEGORY
 
     def get_request_model(self):
         """

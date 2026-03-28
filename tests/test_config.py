@@ -4,9 +4,7 @@ Tests for configuration
 
 from config import (
     DEFAULT_MODEL,
-    TEMPERATURE_ANALYTICAL,
-    TEMPERATURE_BALANCED,
-    TEMPERATURE_CREATIVE,
+    DEFAULT_TEMPERATURE,
     __author__,
     __updated__,
     __version__,
@@ -34,7 +32,5 @@ class TestConfig:
         assert DEFAULT_MODEL == "gemini-3-flash-preview"
 
     def test_temperature_defaults(self):
-        """Test temperature constants"""
-        assert TEMPERATURE_ANALYTICAL == 1.0
-        assert TEMPERATURE_BALANCED == 1.0
-        assert TEMPERATURE_CREATIVE == 1.0
+        """Test temperature constant"""
+        assert DEFAULT_TEMPERATURE == 1.0

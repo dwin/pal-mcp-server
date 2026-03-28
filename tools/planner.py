@@ -25,7 +25,6 @@ from typing import Any
 
 from pydantic import Field, field_validator
 
-from config import TEMPERATURE_BALANCED
 from shared_types import ToolModelCategory
 from systemprompts import PLANNER_PROMPT
 from tools.shared.base_models import WorkflowRequest
@@ -134,12 +133,7 @@ class PlannerTool(StatefulTool):
     def get_system_prompt(self) -> str:
         return PLANNER_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_BALANCED
-
-    def get_model_category(self) -> ToolModelCategory:
-        """Planner requires deep analysis and reasoning"""
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def requires_model(self) -> bool:
         """

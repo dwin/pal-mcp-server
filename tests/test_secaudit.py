@@ -17,7 +17,7 @@ class TestSecauditTool:
 
         assert tool.get_name() == "secaudit"
         assert "security audit" in tool.get_description()
-        assert tool.get_default_temperature() == 1.0  # TEMPERATURE_ANALYTICAL
+        assert tool.get_default_temperature() == 1.0  # DEFAULT_TEMPERATURE
         assert tool.get_model_category() == ToolModelCategory.EXTENDED_REASONING
         assert tool.requires_model() is True
 

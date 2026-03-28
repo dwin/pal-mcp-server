@@ -7,7 +7,6 @@ from typing import Any
 
 from pydantic import Field
 
-from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from tools.shared.base_models import ToolRequest
 from tools.shared.base_tool import BaseTool
@@ -79,14 +78,10 @@ class LookupTool(BaseTool):
     def get_system_prompt(self) -> str:
         return ""
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
+    MODEL_CATEGORY = ToolModelCategory.FAST_RESPONSE
 
     def requires_model(self) -> bool:
         return False
-
-    def get_model_category(self) -> ToolModelCategory:
-        return ToolModelCategory.FAST_RESPONSE
 
     def get_request_model(self):
         return LookupRequest

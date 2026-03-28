@@ -21,7 +21,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field
 
-from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from systemprompts import ANALYZE_PROMPT
 from tools.shared.base_models import WorkflowRequest
@@ -152,12 +151,7 @@ class AnalyzeTool(StatefulTool):
     def get_system_prompt(self) -> str:
         return ANALYZE_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> ToolModelCategory:
-        """Analyze workflow requires thorough analysis and reasoning"""
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the analyze workflow-specific request model."""
