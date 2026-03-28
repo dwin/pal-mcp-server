@@ -17,7 +17,7 @@ from shared_types import ToolModelCategory
 from tools.shared.base_models import ToolRequest
 from tools.shared.exceptions import ToolExecutionError
 
-from .simple.base import SimpleTool
+from .shared.base_tool import BaseTool
 
 # Field descriptions for the Challenge tool
 CHALLENGE_FIELD_DESCRIPTIONS = {
@@ -34,7 +34,7 @@ class ChallengeRequest(ToolRequest):
     prompt: str = Field(..., description=CHALLENGE_FIELD_DESCRIPTIONS["prompt"])
 
 
-class ChallengeTool(SimpleTool):
+class ChallengeTool(BaseTool):
     """
     Challenge tool for encouraging critical thinking and avoiding automatic agreement.
 

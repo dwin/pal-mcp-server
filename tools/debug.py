@@ -25,7 +25,7 @@ from shared_types import ToolModelCategory
 from systemprompts import DEBUG_ISSUE_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ class DebugInvestigationRequest(WorkflowRequest):
     thinking_mode: Optional[str] = Field(default=None, exclude=True)
 
 
-class DebugIssueTool(WorkflowTool):
+class DebugIssueTool(StatefulTool):
     """
     Debug tool for systematic root cause analysis and issue investigation.
 

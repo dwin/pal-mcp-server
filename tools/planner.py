@@ -30,7 +30,7 @@ from shared_types import ToolModelCategory
 from systemprompts import PLANNER_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class PlannerRequest(WorkflowRequest):
         return v
 
 
-class PlannerTool(WorkflowTool):
+class PlannerTool(StatefulTool):
     """
     Planner workflow tool for step-by-step planning using the workflow architecture.
 

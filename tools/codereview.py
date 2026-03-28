@@ -26,7 +26,7 @@ from shared_types import ToolModelCategory
 from systemprompts import CODEREVIEW_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class CodeReviewRequest(WorkflowRequest):
         return self
 
 
-class CodeReviewTool(WorkflowTool):
+class CodeReviewTool(StatefulTool):
     """
     Code Review workflow tool for step-by-step code review and expert analysis.
 

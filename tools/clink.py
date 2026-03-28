@@ -18,8 +18,9 @@ from config import TEMPERATURE_BALANCED
 from shared_types import ToolModelCategory
 from tools.models import ToolOutput
 from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS
+from tools.shared.base_tool import BaseTool
 from tools.shared.exceptions import ToolExecutionError
-from tools.simple.base import SchemaBuilder, SimpleTool
+from tools.shared.schema_builders import SchemaBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class CLinkRequest(BaseModel):
     )
 
 
-class CLinkTool(SimpleTool):
+class CLinkTool(BaseTool):
     """Bridge MCP requests to configured CLI agents.
 
     Schema metadata is cached at construction time and execution relies on the shared

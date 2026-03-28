@@ -10,7 +10,7 @@ from pydantic import Field
 from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from tools.shared.base_models import ToolRequest
-from tools.simple.base import SimpleTool
+from tools.shared.base_tool import BaseTool
 
 LOOKUP_FIELD_DESCRIPTIONS = {
     "prompt": "The API, SDK, library, framework, or technology you need current documentation, version info, breaking changes, or migration guidance for.",
@@ -64,7 +64,7 @@ SEARCH STRATEGY (MAXIMUM 2-4 SEARCHES TOTAL FOR THIS MISSION - THEN STOP):
 """.strip()
 
 
-class LookupTool(SimpleTool):
+class LookupTool(BaseTool):
     """Simple tool that wraps user queries with API lookup instructions."""
 
     def get_name(self) -> str:

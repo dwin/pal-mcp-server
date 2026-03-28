@@ -28,7 +28,7 @@ from shared_types import ToolModelCategory
 from systemprompts import DOCGEN_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class DocgenRequest(WorkflowRequest):
     )
 
 
-class DocgenTool(WorkflowTool):
+class DocgenTool(StatefulTool):
     """
     Documentation generation tool for automated code documentation with complexity analysis.
 

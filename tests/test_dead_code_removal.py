@@ -88,7 +88,7 @@ class TestProviderInfoExtraction:
 
     def test_extract_provider_name_exists(self):
         """A shared _extract_provider_name utility should exist in tools/simple/base.py."""
-        from tools.simple.base import SimpleTool
+        from tools.shared.base_tool import BaseTool as SimpleTool
 
         assert hasattr(
             SimpleTool, "_extract_provider_name"
@@ -96,14 +96,14 @@ class TestProviderInfoExtraction:
 
     def test_extract_provider_name_handles_string(self):
         """_extract_provider_name should handle string provider values."""
-        from tools.simple.base import SimpleTool
+        from tools.shared.base_tool import BaseTool as SimpleTool
 
         result = SimpleTool._extract_provider_name("openai")
         assert result == "openai"
 
     def test_extract_provider_name_handles_none(self):
         """_extract_provider_name should handle None."""
-        from tools.simple.base import SimpleTool
+        from tools.shared.base_tool import BaseTool as SimpleTool
 
         result = SimpleTool._extract_provider_name(None)
         assert result is None
@@ -113,7 +113,7 @@ class TestProviderInfoExtraction:
         from unittest.mock import Mock
 
         from providers.shared import ProviderType
-        from tools.simple.base import SimpleTool
+        from tools.shared.base_tool import BaseTool as SimpleTool
 
         mock_provider = Mock()
         mock_provider.get_provider_type.return_value = ProviderType.OPENAI
@@ -122,7 +122,7 @@ class TestProviderInfoExtraction:
 
     def test_extract_provider_name_handles_object_without_get_provider_type(self):
         """_extract_provider_name should fall back to str() for unknown objects."""
-        from tools.simple.base import SimpleTool
+        from tools.shared.base_tool import BaseTool as SimpleTool
 
         class FakeProvider:
             def __str__(self):

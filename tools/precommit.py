@@ -25,7 +25,7 @@ from shared_types import ToolModelCategory
 from systemprompts import PRECOMMIT_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class PrecommitRequest(WorkflowRequest):
         return self
 
 
-class PrecommitTool(WorkflowTool):
+class PrecommitTool(StatefulTool):
     """
     Precommit workflow tool for step-by-step pre-commit validation and expert analysis.
 
