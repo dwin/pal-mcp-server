@@ -319,3 +319,25 @@ class TestConfigureProvidersFunction:
         ):
             with pytest.raises(ValueError, match="At least one API configuration is required"):
                 configure_providers()
+
+    def test_configure_providers_logs_startup_provider_availability(self, caplog):
+        """Test configure_providers logs provider availability during startup."""
+        from server import configure_providers
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "OPENROUTER_API_KEY": "test-key",
+                    "GEMINI_API_KEY": "",
+                    "OPENAI_API_KEY": "",
+                    "CUSTOM_API_URL": "",
+                },
+                clear=True,
+            ),
+            caplog.at_level("INFO"),
+        ):
+            configure_providers()
+
+        assert "Validating provider configuration at startup..." in caplog.text
+        assert "Startup provider availability: OpenRouter" in caplog.text

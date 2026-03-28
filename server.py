@@ -22,6 +22,7 @@ import asyncio
 import atexit
 import logging
 import os
+import signal
 import sys
 import time
 from logging.handlers import RotatingFileHandler
@@ -152,6 +153,75 @@ except Exception as e:
     print(f"Warning: Could not set up file logging: {e}", file=sys.stderr)
 
 logger = logging.getLogger(__name__)
+
+_provider_cleanup_registered = False
+_provider_cleanup_done = False
+
+
+def cleanup_providers():
+    """Clean up registered providers without creating a registry during shutdown.
+
+    Called from both the atexit handler and the run() finally block.  The guard
+    flag ensures providers are only closed once even when both paths fire.
+
+    If provider startup never created a registry instance, cleanup is skipped
+    quietly so interpreter teardown does not instantiate new objects or emit
+    late shutdown logging.
+    """
+    global _provider_cleanup_done
+    if _provider_cleanup_done:
+        return
+    _provider_cleanup_done = True
+
+    try:
+        from providers.registry import ModelProviderRegistry
+
+        registry = ModelProviderRegistry.get_existing_instance()
+        if registry and hasattr(registry, "_initialized_providers"):
+            for provider in list(registry._initialized_providers.values()):
+                try:
+                    if provider and hasattr(provider, "close"):
+                        provider.close()
+                except Exception:
+                    # Logger might be closed during shutdown
+                    pass
+    except Exception:
+        # Silently ignore any errors during cleanup
+        pass
+
+
+def register_provider_cleanup():
+    """Register provider cleanup once for normal interpreter shutdown."""
+    global _provider_cleanup_registered
+    if _provider_cleanup_registered:
+        return
+
+    atexit.register(cleanup_providers)
+    _provider_cleanup_registered = True
+
+
+def shutdown_handler(signum, _frame):
+    """Convert process signals into a graceful server shutdown."""
+    try:
+        signal_name = signal.Signals(signum).name
+    except (AttributeError, TypeError, ValueError):
+        signal_name = f"signal {signum}" if signum is not None else "shutdown handler called with no signal"
+
+    logger.info(f"Received {signal_name}; starting graceful shutdown")
+    raise KeyboardInterrupt
+
+
+def register_signal_handlers():
+    """Register signal handlers for graceful server shutdown."""
+    for shutdown_signal in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(shutdown_signal, shutdown_handler)
+
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+    except (AttributeError, ValueError):
+        # SIGPIPE is not available or configurable on every platform/runtime.
+        pass
+
 
 # Log PAL_MCP_FORCE_ENV_OVERRIDE configuration for transparency
 if env_override_enabled():
@@ -387,6 +457,8 @@ def configure_providers():
     Raises:
         ValueError: If no valid API keys are found or conflicting configurations detected
     """
+    logger.info("Validating provider configuration at startup...")
+
     # Log environment variable status for debugging
     logger.debug("Checking environment variables for API keys...")
     api_keys_to_check = ["OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "CUSTOM_API_URL"]
@@ -554,7 +626,7 @@ def configure_providers():
             "- CUSTOM_API_URL for local models (Ollama, vLLM, etc.)"
         )
 
-    logger.info(f"Available providers: {', '.join(valid_providers)}")
+    logger.info(f"Startup provider availability: {', '.join(valid_providers)}")
 
     # Log provider priority
     priority_info = []
@@ -568,25 +640,7 @@ def configure_providers():
     if len(priority_info) > 1:
         logger.info(f"Provider priority: {' → '.join(priority_info)}")
 
-    # Register cleanup function for providers
-    def cleanup_providers():
-        """Clean up all registered providers on shutdown."""
-        try:
-            registry = ModelProviderRegistry()
-            if hasattr(registry, "_initialized_providers"):
-                # Iterate over provider instances (values), not (type, instance) tuples
-                for provider in list(registry._initialized_providers.values()):
-                    try:
-                        if provider and hasattr(provider, "close"):
-                            provider.close()
-                    except Exception:
-                        # Logger might be closed during shutdown
-                        pass
-        except Exception:
-            # Silently ignore any errors during cleanup
-            pass
-
-    atexit.register(cleanup_providers)
+    register_provider_cleanup()
 
     # Check and log model restrictions
     restriction_service = get_restriction_service()
@@ -1517,11 +1571,13 @@ async def main():
 
 def run():
     """Console script entry point for pal-mcp-server."""
+    register_signal_handlers()
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        # Handle graceful shutdown
-        pass
+        logger.info("PAL MCP Server shutdown requested")
+    finally:
+        cleanup_providers()
 
 
 if __name__ == "__main__":
