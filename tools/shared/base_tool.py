@@ -1321,7 +1321,7 @@ When recommending searches, be specific about what information you need and why 
                 raise ToolExecutionError(error_output.model_dump_json())
 
             # Handle model resolution like old base.py
-            model_name = req.get_request_model_name(request)
+            model_name = self.get_request_model_name(request)
             if not model_name:
                 from config import DEFAULT_MODEL
 
@@ -1342,13 +1342,13 @@ When recommending searches, be specific about what information you need and why 
                 tool_logger.debug(f"{self.get_name()}: Created model context for {model_name}")
 
             # Get images if present
-            images = req.get_request_images(request)
-            continuation_id = req.get_request_continuation_id(request)
+            images = self.get_request_images(request)
+            continuation_id = self.get_request_continuation_id(request)
 
             # Handle conversation history and prompt preparation
             if continuation_id:
                 # Check if conversation history is already embedded
-                field_value = req.get_request_prompt(request)
+                field_value = self.get_request_prompt(request)
                 if "=== CONVERSATION HISTORY ===" in field_value:
                     # Use pre-embedded history
                     prompt = field_value
@@ -1364,8 +1364,8 @@ When recommending searches, be specific about what information you need and why 
 
                     if thread_context:
                         # Add user's new input to conversation
-                        user_prompt = req.get_request_prompt(request)
-                        user_files = req.get_request_files(request)
+                        user_prompt = self.get_request_prompt(request)
+                        user_files = self.get_request_files(request)
                         if user_prompt:
                             add_turn(continuation_id, "user", user_prompt, files=user_files)
 
@@ -1426,7 +1426,7 @@ When recommending searches, be specific about what information you need and why 
             for warning in temp_warnings:
                 # Get thinking mode with defaults
                 tool_logger.warning(warning)
-            thinking_mode = req.get_request_thinking_mode(request)
+            thinking_mode = self.get_request_thinking_mode(request)
             if thinking_mode is None:
                 thinking_mode = self.get_default_thinking_mode()
 
@@ -1935,7 +1935,7 @@ When recommending searches, be specific about what information you need and why 
         formatted_response = self.format_response(raw_text, request, model_info)
 
         # Handle conversation continuation
-        continuation_id = req.get_request_continuation_id(request)
+        continuation_id = self.get_request_continuation_id(request)
         if continuation_id:
             self._record_assistant_turn(continuation_id, raw_text, request, model_info)
 
@@ -1965,7 +1965,7 @@ When recommending searches, be specific about what information you need and why 
 
     def _create_continuation_offer(self, request, model_info: Optional[dict] = None):
         """Create continuation offer following old base.py pattern."""
-        continuation_id = req.get_request_continuation_id(request)
+        continuation_id = self.get_request_continuation_id(request)
 
         try:
             from utils.conversation_memory import create_thread, get_thread
@@ -1989,16 +1989,16 @@ When recommending searches, be specific about what information you need and why 
             else:
                 # New conversation - create thread and offer continuation
                 # Convert request to dict for initial_context
-                initial_request_dict = req.get_request_as_dict(request)
+                initial_request_dict = self.get_request_as_dict(request)
 
                 new_thread_id = create_thread(tool_name=self.get_name(), initial_request=initial_request_dict)
 
                 # Add the initial user turn to the new thread
                 from utils.conversation_memory import MAX_CONVERSATION_TURNS, add_turn
 
-                user_prompt = req.get_request_prompt(request)
-                user_files = req.get_request_files(request)
-                user_images = req.get_request_images(request)
+                user_prompt = self.get_request_prompt(request)
+                user_files = self.get_request_files(request)
+                user_images = self.get_request_images(request)
 
                 # Add user's initial turn
                 add_turn(
@@ -2039,7 +2039,7 @@ When recommending searches, be specific about what information you need and why 
     ):
         """Create response with continuation offer following old base.py pattern."""
         try:
-            if not req.get_request_continuation_id(request):
+            if not self.get_request_continuation_id(request):
                 self._record_assistant_turn(
                     continuation_data["continuation_id"],
                     content,
@@ -2099,8 +2099,8 @@ When recommending searches, be specific about what information you need and why 
             continuation_id,
             "assistant",
             response_text,
-            files=req.get_request_files(request),
-            images=req.get_request_images(request),
+            files=self.get_request_files(request),
+            images=self.get_request_images(request),
             tool_name=self.get_name(),
             model_provider=model_provider,
             model_name=model_name,
@@ -2135,11 +2135,11 @@ When recommending searches, be specific about what information you need and why 
         self._validate_token_limit(content_to_validate, "Content")
 
         # Add context files if provided (does not affect MCP boundary enforcement)
-        files = req.get_request_files(request)
+        files = self.get_request_files(request)
         if files:
             file_content, processed_files = self._prepare_file_content_for_prompt(
                 files,
-                req.get_request_continuation_id(request),
+                self.get_request_continuation_id(request),
                 "Context files",
                 model_context=getattr(self, "_model_context", None),
             )
@@ -2191,18 +2191,18 @@ Please provide a thoughtful, comprehensive response:"""
             ValueError: If prompt is too large for MCP transport
         """
         # Check for prompt.txt in provided absolute file paths
-        files = req.get_request_files(request)
+        files = self.get_request_files(request)
         if files:
             prompt_content, updated_files = self.handle_prompt_file(files)
 
             # Update request files list if needed
             if updated_files is not None:
-                req.set_request_files(request, updated_files)
+                self.set_request_files(request, updated_files)
         else:
             prompt_content = None
 
         # Use prompt.txt content if available, otherwise use the prompt field
-        user_content = prompt_content if prompt_content else req.get_request_prompt(request)
+        user_content = prompt_content if prompt_content else self.get_request_prompt(request)
 
         # Check user input size at MCP transport boundary (excluding conversation history)
         validation_content = self.get_prompt_content_for_size_validation(user_content)
@@ -2249,7 +2249,7 @@ Please provide a thoughtful, comprehensive response:"""
             Optional[str]: Error message if validation fails, None if all paths are valid
         """
         # Check if request has absolute file paths attribute (legacy tools may still provide 'files')
-        files = req.get_request_files(request)
+        files = self.get_request_files(request)
         if files:
             for file_path in files:
                 if not os.path.isabs(file_path):
@@ -2320,7 +2320,7 @@ Please provide a thoughtful, comprehensive response:"""
         Returns:
             Tuple of (validated_temperature, warning_messages)
         """
-        temperature = req.get_request_temperature(request)
+        temperature = self.get_request_temperature(request)
         if temperature is None:
             temperature = self.get_default_temperature()
         return self.validate_and_correct_temperature(temperature, model_context)

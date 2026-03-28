@@ -306,6 +306,62 @@ class TestBackwardCompatAliases:
         assert issubclass(WorkflowTool, object)
 
 
+class TestRequestAccessorOverrides:
+    """Verify BaseTool.execute() routes through overridable instance methods."""
+
+    def test_execute_uses_instance_accessors_not_module_functions(self):
+        """BaseTool.execute() must call self.get_request_*() not req.get_request_*() directly.
+
+        This ensures subclass overrides for custom request field mapping are respected.
+        The accessor methods (get_request_model_name, get_request_images, etc.) should
+        be the ONLY place that calls req.get_request_*() directly.
+        """
+        import ast
+
+        from tools.shared.base_tool import BaseTool
+
+        source = inspect.getsource(BaseTool)
+        tree = ast.parse(source)
+
+        # Find the accessor method names that legitimately call req.*
+        accessor_methods = {
+            "get_request_model_name",
+            "get_request_images",
+            "get_request_continuation_id",
+            "get_request_prompt",
+            "get_request_temperature",
+            "get_request_thinking_mode",
+            "get_request_files",
+            "get_request_as_dict",
+            "set_request_files",
+            "get_request_use_assistant_model",
+        }
+
+        # Walk the AST to find all method definitions
+        violations = []
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            method_name = node.name
+
+            # Skip the accessor methods themselves — they correctly delegate to req.*
+            if method_name in accessor_methods:
+                continue
+
+            # Check for direct req.get_request_* or req.set_request_* calls
+            for child in ast.walk(node):
+                if isinstance(child, ast.Attribute) and isinstance(child.value, ast.Name):
+                    if child.value.id == "req" and (
+                        child.attr.startswith("get_request_") or child.attr.startswith("set_request_")
+                    ):
+                        violations.append(f"{method_name}() calls req.{child.attr}() directly")
+
+        assert not violations, (
+            "BaseTool methods should use self.get_request_*() for overridability, "
+            "not req.get_request_*() directly. Violations:\n" + "\n".join(f"  - {v}" for v in violations)
+        )
+
+
 class TestExtractedUtilityModules:
     """Verify utility modules were properly extracted."""
 
