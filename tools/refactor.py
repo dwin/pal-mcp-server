@@ -26,7 +26,7 @@ from shared_types import ToolModelCategory
 from systemprompts import REFACTOR_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +136,7 @@ class RefactorRequest(WorkflowRequest):
         return self
 
 
-class RefactorTool(WorkflowTool):
+class RefactorTool(StatefulTool):
     """
     Refactor tool for step-by-step refactoring analysis and expert validation.
 

@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 from config import MCP_PROMPT_SIZE_LIMIT
 from providers import ModelProvider, ModelProviderRegistry
 from shared_types import ToolModelCategory
+from tools.shared import request_helpers as req
+from tools.shared.exceptions import ToolExecutionError
 from utils import estimate_tokens
 from utils.conversation_memory import (
     ConversationTurn,
@@ -80,6 +82,31 @@ class BaseTool(ABC):
     3. Define a request model that inherits from ToolRequest
     4. Register the tool in server.py's TOOLS dictionary
     """
+
+    # Common field definitions that tools can reuse.
+    # These are defined as a _ClassProperty so they work with both
+    # BaseTool.FILES_FIELD (class-level) and self.FILES_FIELD (instance-level)
+    # while avoiding circular imports via lazy evaluation.
+    class _ClassProperty:
+        """Descriptor that works as a property on both the class and instances."""
+
+        def __init__(self, func):
+            self._func = func
+
+        def __get__(self, obj, objtype=None):
+            return self._func()
+
+    @_ClassProperty
+    def FILES_FIELD():
+        from tools.shared.schema_builders import SchemaBuilder
+
+        return SchemaBuilder.SIMPLE_FIELD_SCHEMAS["absolute_file_paths"]
+
+    @_ClassProperty
+    def IMAGES_FIELD():
+        from tools.shared.schema_builders import SchemaBuilder
+
+        return SchemaBuilder.COMMON_FIELD_SCHEMAS["images"]
 
     # Class-level cache for OpenRouter registry to avoid multiple loads
     _openrouter_registry_cache = None
@@ -140,7 +167,6 @@ class BaseTool(ABC):
         """
         pass
 
-    @abstractmethod
     def get_input_schema(self) -> dict[str, Any]:
         """
         Return the JSON Schema that defines this tool's parameters.
@@ -148,10 +174,22 @@ class BaseTool(ABC):
         This schema is used by MCP clients to validate inputs before
         sending requests. It should match the tool's request model.
 
+        The default implementation uses SchemaBuilder to combine tool-specific
+        fields from get_tool_fields() with common fields. Workflow tools
+        typically override this method entirely.
+
         Returns:
             Dict[str, Any]: JSON Schema object defining required and optional parameters
         """
-        pass
+        from tools.shared.schema_builders import SchemaBuilder
+
+        required_fields = list(self.get_required_fields())
+        return SchemaBuilder.build_schema(
+            tool_specific_fields=self.get_tool_fields(),
+            required_fields=required_fields,
+            model_field_schema=self.get_model_field_schema(),
+            auto_mode=self.is_effective_auto_mode(),
+        )
 
     @abstractmethod
     def get_system_prompt(self) -> str:
@@ -209,11 +247,14 @@ class BaseTool(ABC):
         Annotations provide hints about tool behavior without being security-critical.
         They help MCP clients make better decisions about tool usage.
 
+        All tools are read-only by default. They may call external AI models for
+        analysis or conversation, but they don't write files or make system changes.
+        Override this method if your tool needs different annotations.
+
         Returns:
             Optional[dict]: Dictionary with annotation fields like readOnlyHint, destructiveHint, etc.
-                           Returns None if no annotations are needed.
         """
-        return None
+        return {"readOnlyHint": True}
 
     def requires_model(self) -> bool:
         """
@@ -555,18 +596,57 @@ class BaseTool(ABC):
         """
         return ToolModelCategory.BALANCED
 
-    @abstractmethod
     def get_request_model(self):
         """
         Return the Pydantic model class used for validating requests.
 
         This model should inherit from ToolRequest and define all
-        parameters specific to this tool.
+        parameters specific to this tool. The default returns ToolRequest.
 
         Returns:
             Type[ToolRequest]: The request model class
         """
-        pass
+        from tools.shared.base_models import ToolRequest
+
+        return ToolRequest
+
+    def get_tool_fields(self) -> dict[str, dict[str, Any]]:
+        """
+        Return tool-specific field definitions. Override to define fields.
+
+        This method should return a dictionary mapping field names to their
+        JSON schema definitions. Common fields (model, temperature, etc.)
+        are added automatically by SchemaBuilder.
+
+        Returns:
+            Dict mapping field names to JSON schema objects
+        """
+        return {}
+
+    def get_required_fields(self) -> list[str]:
+        """
+        Return list of required field names. Override to specify requirements.
+
+        The model field is automatically added if in auto mode.
+
+        Returns:
+            List of required field names
+        """
+        return []
+
+    def supports_custom_request_model(self) -> bool:
+        """
+        Indicate whether this tool supports custom request models.
+
+        Tools that override get_request_model() to return something other than
+        ToolRequest should return True here.
+
+        Returns:
+            True if the tool uses a custom request model
+        """
+        from tools.shared.base_models import ToolRequest
+
+        return self.get_request_model() != ToolRequest
 
     def validate_file_paths(self, request) -> Optional[str]:
         """
@@ -866,17 +946,26 @@ class BaseTool(ABC):
         """
         Get the content that should be validated for MCP prompt size limits.
 
-        This hook method allows tools to specify what content should be checked
-        against the MCP transport size limit. By default, it returns the user content,
-        but can be overridden to exclude conversation history when needed.
+        When server.py embeds conversation history into the prompt field, it also stores
+        the original user prompt in _original_user_prompt. We use that for size validation
+        to avoid incorrectly triggering size limits due to conversation history.
 
         Args:
-            user_content: The user content that would normally be validated
+            user_content: The user content (may include conversation history)
 
         Returns:
-            The content that should actually be validated for size limits
+            The original user prompt if available, otherwise the full user content
         """
-        # Default implementation: validate the full user content
+        # Check if we have the current arguments from execute() method
+        current_args = getattr(self, "_current_arguments", None)
+        if current_args:
+            # If server.py embedded conversation history, it stores original prompt separately
+            original_user_prompt = current_args.get("_original_user_prompt")
+            if original_user_prompt is not None:
+                # Use original user prompt for size validation (excludes conversation history)
+                return original_user_prompt
+
+        # Fallback to default behavior (validate full user content)
         return user_content
 
     def check_prompt_size(self, text: str) -> Optional[dict[str, Any]]:
@@ -1192,10 +1281,328 @@ When recommending searches, be specific about what information you need and why 
     # for now to maintain compatibility.
 
     async def execute(self, arguments: dict[str, Any]) -> list[TextContent]:
-        """Execute the tool - will be inherited from existing base.py for now."""
-        # This will be implemented by importing from the current base.py
-        # for backward compatibility during the migration
-        raise NotImplementedError("Subclasses must implement execute method")
+        """
+        Execute the tool using the comprehensive flow.
+
+        This method handles the full execution pattern:
+        1. Request validation
+        2. File path security validation
+        3. Model resolution and context setup
+        4. Conversation history handling
+        5. Image validation
+        6. Temperature and thinking mode configuration
+        7. AI model invocation
+        8. Response parsing and formatting
+        9. Conversation continuation offers
+        """
+        tool_logger = logging.getLogger(f"tools.{self.get_name()}")
+
+        try:
+            # Store arguments for access by helper methods
+            self._current_arguments = arguments
+
+            tool_logger.info(f"🔧 {self.get_name()} tool called with arguments: {list(arguments.keys())}")
+
+            # Validate request using the tool's Pydantic model
+            request_model = self.get_request_model()
+            request = request_model(**arguments)
+            tool_logger.debug(f"Request validation successful for {self.get_name()}")
+
+            # Validate file paths for security
+            # This prevents path traversal attacks and ensures proper access control
+            path_error = self._validate_file_paths(request)
+            if path_error:
+                error_output = ToolOutput(
+                    status="error",
+                    content=path_error,
+                    content_type="text",
+                )
+                tool_logger.error("Path validation failed for %s: %s", self.get_name(), path_error)
+                raise ToolExecutionError(error_output.model_dump_json())
+
+            # Handle model resolution like old base.py
+            model_name = req.get_request_model_name(request)
+            if not model_name:
+                from config import DEFAULT_MODEL
+
+                model_name = DEFAULT_MODEL
+
+            # Store the current model name for later use
+            self._current_model_name = model_name
+
+            # Handle model context from arguments (for in-process testing)
+            if "_model_context" in arguments:
+                self._model_context = arguments["_model_context"]
+                tool_logger.debug(f"{self.get_name()}: Using model context from arguments")
+            else:
+                # Create model context if not provided
+                from utils.model_context import ModelContext
+
+                self._model_context = ModelContext(model_name)
+                tool_logger.debug(f"{self.get_name()}: Created model context for {model_name}")
+
+            # Get images if present
+            images = req.get_request_images(request)
+            continuation_id = req.get_request_continuation_id(request)
+
+            # Handle conversation history and prompt preparation
+            if continuation_id:
+                # Check if conversation history is already embedded
+                field_value = req.get_request_prompt(request)
+                if "=== CONVERSATION HISTORY ===" in field_value:
+                    # Use pre-embedded history
+                    prompt = field_value
+                    tool_logger.debug(f"{self.get_name()}: Using pre-embedded conversation history")
+                else:
+                    # No embedded history - reconstruct it (for in-process calls)
+                    tool_logger.debug(f"{self.get_name()}: No embedded history found, reconstructing conversation")
+
+                    # Get thread context
+                    from utils.conversation_memory import add_turn, build_conversation_history, get_thread
+
+                    thread_context = get_thread(continuation_id)
+
+                    if thread_context:
+                        # Add user's new input to conversation
+                        user_prompt = req.get_request_prompt(request)
+                        user_files = req.get_request_files(request)
+                        if user_prompt:
+                            add_turn(continuation_id, "user", user_prompt, files=user_files)
+
+                            # Get updated thread context after adding the turn
+                            thread_context = get_thread(continuation_id)
+                            tool_logger.debug(
+                                f"{self.get_name()}: Retrieved updated thread with {len(thread_context.turns)} turns"
+                            )
+
+                        # Build conversation history with updated thread context
+                        conversation_history, conversation_tokens = build_conversation_history(
+                            thread_context, self._model_context
+                        )
+
+                        # Get the base prompt from the tool
+                        base_prompt = await self.prepare_prompt(request)
+
+                        # Combine with conversation history
+                        if conversation_history:
+                            prompt = f"{conversation_history}\n\n=== NEW USER INPUT ===\n{base_prompt}"
+                        else:
+                            prompt = base_prompt
+                    else:
+                        # Thread not found, prepare normally
+                        tool_logger.warning(f"Thread {continuation_id} not found, preparing prompt normally")
+                        prompt = await self.prepare_prompt(request)
+            else:
+                # New conversation, prepare prompt normally
+                prompt = await self.prepare_prompt(request)
+
+                # Add follow-up instructions for new conversations
+                from server import get_follow_up_instructions
+
+                follow_up_instructions = get_follow_up_instructions(0)
+                prompt = f"{prompt}\n\n{follow_up_instructions}"
+                tool_logger.debug(
+                    f"Added follow-up instructions for new {self.get_name()} conversation"
+                )  # Validate images if any were provided
+            if images:
+                image_validation_error = self._validate_image_limits(
+                    images, model_context=self._model_context, continuation_id=continuation_id
+                )
+                if image_validation_error:
+                    error_output = ToolOutput(
+                        status=image_validation_error.get("status", "error"),
+                        content=image_validation_error.get("content"),
+                        content_type=image_validation_error.get("content_type", "text"),
+                        metadata=image_validation_error.get("metadata"),
+                    )
+                    payload = error_output.model_dump_json()
+                    tool_logger.error("Image validation failed for %s: %s", self.get_name(), payload)
+                    raise ToolExecutionError(payload)
+
+            # Get and validate temperature against model constraints
+            temperature, temp_warnings = self.get_validated_temperature(request, self._model_context)
+
+            # Log any temperature corrections
+            for warning in temp_warnings:
+                # Get thinking mode with defaults
+                tool_logger.warning(warning)
+            thinking_mode = req.get_request_thinking_mode(request)
+            if thinking_mode is None:
+                thinking_mode = self.get_default_thinking_mode()
+
+            # Get the provider from model context (clean OOP - no re-fetching)
+            provider = self._model_context.provider
+            capabilities = self._model_context.capabilities
+
+            # Get system prompt for this tool
+            base_system_prompt = self.get_system_prompt()
+            capability_augmented_prompt = self._augment_system_prompt_with_capabilities(
+                base_system_prompt, capabilities
+            )
+            language_instruction = self.get_language_instruction()
+            system_prompt = language_instruction + capability_augmented_prompt
+
+            # Generate AI response using the provider
+            tool_logger.info(f"Sending request to {provider.get_provider_type().value} API for {self.get_name()}")
+            tool_logger.info(
+                f"Using model: {self._model_context.model_name} via {provider.get_provider_type().value} provider"
+            )
+
+            # Estimate tokens for logging
+            from utils.token_utils import estimate_tokens as _estimate_tokens
+
+            estimated_tokens = _estimate_tokens(prompt)
+            tool_logger.debug(f"Prompt length: {len(prompt)} characters (~{estimated_tokens:,} tokens)")
+
+            # Resolve model capabilities for feature gating
+            supports_thinking = capabilities.supports_extended_thinking
+
+            # Generate content with provider abstraction
+            model_response = provider.generate_content(
+                prompt=prompt,
+                model_name=self._current_model_name,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                thinking_mode=thinking_mode if supports_thinking else None,
+                images=images if images else None,
+            )
+
+            tool_logger.info(f"Received response from {provider.get_provider_type().value} API for {self.get_name()}")
+
+            # Process the model's response
+            if model_response.content:
+                raw_text = model_response.content
+
+                # Create model info for conversation tracking
+                model_info = {
+                    "provider": provider,
+                    "model_name": self._current_model_name,
+                    "model_response": model_response,
+                }
+
+                # Parse response using the same logic as old base.py
+                tool_output = self._parse_response(raw_text, request, model_info)
+                tool_logger.info(f"✅ {self.get_name()} tool completed successfully")
+
+            else:
+                # Handle cases where the model couldn't generate a response
+                metadata = model_response.metadata or {}
+                finish_reason = metadata.get("finish_reason", "Unknown")
+
+                if metadata.get("is_blocked_by_safety"):
+                    # Specific handling for content safety blocks
+                    safety_details = metadata.get("safety_feedback") or "details not provided"
+                    tool_logger.warning(
+                        f"Response blocked by content safety policy for {self.get_name()}. "
+                        f"Reason: {finish_reason}, Details: {safety_details}"
+                    )
+                    tool_output = ToolOutput(
+                        status="error",
+                        content="Your request was blocked by the content safety policy. "
+                        "Please try modifying your prompt.",
+                        content_type="text",
+                    )
+                else:
+                    # Handle other empty responses - could be legitimate completion or unclear blocking
+                    if finish_reason == "STOP":
+                        # Model completed normally but returned empty content - retry with clarification
+                        tool_logger.info(
+                            f"Model completed with empty response for {self.get_name()}, retrying with clarification"
+                        )
+
+                        # Retry the same request with modified prompt asking for explicit response
+                        original_prompt = prompt
+                        retry_prompt = f"{original_prompt}\n\nIMPORTANT: Please provide a substantive response. If you cannot respond to the above request, please explain why and suggest alternatives."
+
+                        try:
+                            retry_response = provider.generate_content(
+                                prompt=retry_prompt,
+                                model_name=self._current_model_name,
+                                system_prompt=system_prompt,
+                                temperature=temperature,
+                                thinking_mode=thinking_mode if supports_thinking else None,
+                                images=images if images else None,
+                            )
+
+                            if retry_response.content:
+                                # Successful retry - use the retry response
+                                tool_logger.info(f"Retry successful for {self.get_name()}")
+                                raw_text = retry_response.content
+
+                                # Update model info for the successful retry
+                                model_info = {
+                                    "provider": provider,
+                                    "model_name": self._current_model_name,
+                                    "model_response": retry_response,
+                                }
+
+                                # Parse the retry response
+                                tool_output = self._parse_response(raw_text, request, model_info)
+                                tool_logger.info(f"✅ {self.get_name()} tool completed successfully after retry")
+                            else:
+                                # Retry also failed - inspect metadata to find out why
+                                retry_metadata = retry_response.metadata or {}
+                                if retry_metadata.get("is_blocked_by_safety"):
+                                    # The retry was blocked by safety filters
+                                    safety_details = retry_metadata.get("safety_feedback") or "details not provided"
+                                    tool_logger.warning(
+                                        f"Retry for {self.get_name()} was blocked by content safety policy. "
+                                        f"Details: {safety_details}"
+                                    )
+                                    tool_output = ToolOutput(
+                                        status="error",
+                                        content="Your request was also blocked by the content safety policy after a retry. "
+                                        "Please try rephrasing your prompt significantly.",
+                                        content_type="text",
+                                    )
+                                else:
+                                    # Retry failed for other reasons (e.g., another STOP)
+                                    tool_output = ToolOutput(
+                                        status="error",
+                                        content="The model repeatedly returned empty responses. This may indicate content filtering or a model issue.",
+                                        content_type="text",
+                                    )
+                        except Exception as retry_error:
+                            tool_logger.warning(f"Retry failed for {self.get_name()}: {retry_error}")
+                            tool_output = ToolOutput(
+                                status="error",
+                                content=f"Model returned empty response and retry failed: {str(retry_error)}",
+                                content_type="text",
+                            )
+                    else:
+                        # Non-STOP finish reasons are likely actual errors
+                        tool_logger.warning(
+                            f"Response blocked or incomplete for {self.get_name()}. Finish reason: {finish_reason}"
+                        )
+                        tool_output = ToolOutput(
+                            status="error",
+                            content=f"Response blocked or incomplete. Finish reason: {finish_reason}",
+                            content_type="text",
+                        )
+
+            # Return the tool output as TextContent, marking protocol errors appropriately
+            payload = tool_output.model_dump_json()
+            if tool_output.status == "error":
+                tool_logger.error("%s reported error status - raising ToolExecutionError", self.get_name())
+                raise ToolExecutionError(payload)
+            return [TextContent(type="text", text=payload)]
+
+        except ToolExecutionError:
+            raise
+        except Exception as e:
+            # Special handling for MCP size check errors
+            if str(e).startswith("MCP_SIZE_CHECK:"):
+                # Extract the JSON content after the prefix
+                json_content = str(e)[len("MCP_SIZE_CHECK:") :]
+                raise ToolExecutionError(json_content)
+
+            tool_logger.error(f"Error in {self.get_name()}: {str(e)}")
+            error_output = ToolOutput(
+                status="error",
+                content=f"Error in {self.get_name()}: {str(e)}",
+                content_type="text",
+            )
+            raise ToolExecutionError(error_output.model_dump_json()) from e
 
     def _should_require_model_selection(self, model_name: str) -> bool:
         """
@@ -1518,6 +1925,443 @@ When recommending searches, be specific about what information you need and why 
         return None
 
     def _parse_response(self, raw_text: str, request, model_info: Optional[dict] = None):
-        """Parse response - will be inherited for now."""
-        # Implementation inherited from current base.py
-        raise NotImplementedError("Subclasses must implement _parse_response method")
+        """
+        Parse the raw response and format it using the hook method.
+
+        This simplified version focuses on formatting the response
+        using the format_response hook, then handling conversation continuation.
+        """
+        # Format the response using the hook method
+        formatted_response = self.format_response(raw_text, request, model_info)
+
+        # Handle conversation continuation
+        continuation_id = req.get_request_continuation_id(request)
+        if continuation_id:
+            self._record_assistant_turn(continuation_id, raw_text, request, model_info)
+
+        # Create continuation offer
+        continuation_data = self._create_continuation_offer(request, model_info)
+        if continuation_data:
+            return self._create_continuation_offer_response(formatted_response, continuation_data, request, model_info)
+        else:
+            # Build metadata with model and provider info for success response
+            metadata = {}
+            if model_info:
+                model_name = model_info.get("model_name")
+                if model_name:
+                    metadata["model_used"] = model_name
+                provider_name = self._extract_provider_name(model_info.get("provider"))
+                if provider_name:
+                    metadata["provider_used"] = provider_name
+
+            return ToolOutput(
+                status="success",
+                content=formatted_response,
+                content_type="text",
+                metadata=metadata if metadata else None,
+            )
+
+    # === CONTINUATION AND CONVERSATION METHODS ===
+
+    def _create_continuation_offer(self, request, model_info: Optional[dict] = None):
+        """Create continuation offer following old base.py pattern."""
+        continuation_id = req.get_request_continuation_id(request)
+
+        try:
+            from utils.conversation_memory import create_thread, get_thread
+
+            if continuation_id:
+                # Existing conversation
+                thread_context = get_thread(continuation_id)
+                if thread_context and thread_context.turns:
+                    turn_count = len(thread_context.turns)
+                    from utils.conversation_memory import MAX_CONVERSATION_TURNS
+
+                    if turn_count >= MAX_CONVERSATION_TURNS - 1:
+                        return None  # No more turns allowed
+
+                    remaining_turns = MAX_CONVERSATION_TURNS - turn_count - 1
+                    return {
+                        "continuation_id": continuation_id,
+                        "remaining_turns": remaining_turns,
+                        "note": f"You can continue this conversation for {remaining_turns} more exchanges.",
+                    }
+            else:
+                # New conversation - create thread and offer continuation
+                # Convert request to dict for initial_context
+                initial_request_dict = req.get_request_as_dict(request)
+
+                new_thread_id = create_thread(tool_name=self.get_name(), initial_request=initial_request_dict)
+
+                # Add the initial user turn to the new thread
+                from utils.conversation_memory import MAX_CONVERSATION_TURNS, add_turn
+
+                user_prompt = req.get_request_prompt(request)
+                user_files = req.get_request_files(request)
+                user_images = req.get_request_images(request)
+
+                # Add user's initial turn
+                add_turn(
+                    new_thread_id,
+                    "user",
+                    user_prompt,
+                    files=user_files,
+                    images=user_images,
+                    tool_name=self.get_name(),
+                )
+
+                return {
+                    "continuation_id": new_thread_id,
+                    "remaining_turns": MAX_CONVERSATION_TURNS - 1,
+                    "note": f"You can continue this conversation for {MAX_CONVERSATION_TURNS - 1} more exchanges.",
+                }
+        except Exception:
+            return None
+
+    @staticmethod
+    def _extract_provider_name(provider) -> Optional[str]:
+        """Extract a string provider name from a provider object or string.
+
+        Handles provider objects (with get_provider_type()), plain strings,
+        and None values.
+        """
+        if provider is None:
+            return None
+        if isinstance(provider, str):
+            return provider
+        try:
+            return provider.get_provider_type().value
+        except AttributeError:
+            return str(provider)
+
+    def _create_continuation_offer_response(
+        self, content: str, continuation_data: dict, request, model_info: Optional[dict] = None
+    ):
+        """Create response with continuation offer following old base.py pattern."""
+        try:
+            if not req.get_request_continuation_id(request):
+                self._record_assistant_turn(
+                    continuation_data["continuation_id"],
+                    content,
+                    request,
+                    model_info,
+                )
+
+            continuation_offer = ContinuationOffer(
+                continuation_id=continuation_data["continuation_id"],
+                note=continuation_data["note"],
+                remaining_turns=continuation_data["remaining_turns"],
+            )
+
+            # Build metadata with model and provider info
+            metadata = {"tool_name": self.get_name(), "conversation_ready": True}
+            if model_info:
+                model_name = model_info.get("model_name")
+                if model_name:
+                    metadata["model_used"] = model_name
+                provider_name = self._extract_provider_name(model_info.get("provider"))
+                if provider_name:
+                    metadata["provider_used"] = provider_name
+
+            return ToolOutput(
+                status="continuation_available",
+                content=content,
+                content_type="text",
+                continuation_offer=continuation_offer,
+                metadata=metadata,
+            )
+        except Exception:
+            # Fallback to simple success if continuation offer fails
+            return ToolOutput(status="success", content=content, content_type="text")
+
+    def _record_assistant_turn(
+        self, continuation_id: str, response_text: str, request, model_info: Optional[dict]
+    ) -> None:
+        """Persist an assistant response in conversation memory."""
+
+        if not continuation_id:
+            return
+
+        from utils.conversation_memory import add_turn
+
+        model_provider = None
+        model_name = None
+        model_metadata = None
+
+        if model_info:
+            model_provider = self._extract_provider_name(model_info.get("provider"))
+            model_name = model_info.get("model_name")
+            model_response = model_info.get("model_response")
+            if model_response:
+                model_metadata = {"usage": model_response.usage, "metadata": model_response.metadata}
+
+        add_turn(
+            continuation_id,
+            "assistant",
+            response_text,
+            files=req.get_request_files(request),
+            images=req.get_request_images(request),
+            tool_name=self.get_name(),
+            model_provider=model_provider,
+            model_name=model_name,
+            model_metadata=model_metadata,
+        )
+
+    # === CONVENIENCE METHODS FOR COMMON TOOL PATTERNS ===
+
+    def build_standard_prompt(
+        self, system_prompt: str, user_content: str, request, file_context_title: str = "CONTEXT FILES"
+    ) -> str:
+        """
+        Build a standard prompt with system prompt, user content, and optional files.
+
+        This is a convenience method that handles the common pattern of:
+        1. Adding file content if present
+        2. Checking token limits
+        3. Adding web search instructions
+        4. Combining everything into a well-formatted prompt
+
+        Args:
+            system_prompt: The system prompt for the tool
+            user_content: The main user request/content
+            request: The validated request object
+            file_context_title: Title for the file context section
+
+        Returns:
+            Complete formatted prompt ready for the AI model
+        """
+        # Check size limits against raw user input before enriching with internal context
+        content_to_validate = self.get_prompt_content_for_size_validation(user_content)
+        self._validate_token_limit(content_to_validate, "Content")
+
+        # Add context files if provided (does not affect MCP boundary enforcement)
+        files = req.get_request_files(request)
+        if files:
+            file_content, processed_files = self._prepare_file_content_for_prompt(
+                files,
+                req.get_request_continuation_id(request),
+                "Context files",
+                model_context=getattr(self, "_model_context", None),
+            )
+            self._actually_processed_files = processed_files
+            if file_content:
+                user_content = f"{user_content}\n\n=== {file_context_title} ===\n{file_content}\n=== END CONTEXT ===="
+
+        # Add standardized web search guidance
+        websearch_instruction = self.get_websearch_instruction(self.get_websearch_guidance())
+
+        # Combine system prompt with user content
+        full_prompt = f"""{system_prompt}{websearch_instruction}
+
+=== USER REQUEST ===
+{user_content}
+=== END REQUEST ===
+
+Please provide a thoughtful, comprehensive response:"""
+
+        return full_prompt
+
+    def get_websearch_guidance(self) -> Optional[str]:
+        """
+        Return tool-specific web search guidance.
+
+        Override this to provide tool-specific guidance for when web searches
+        would be helpful. Return None to use the default guidance.
+
+        Returns:
+            Tool-specific web search guidance or None for default
+        """
+        return None
+
+    def handle_prompt_file_with_fallback(self, request) -> str:
+        """
+        Handle prompt.txt files with fallback to request field.
+
+        This is a convenience method for tools that accept prompts either
+        as a field or as a prompt.txt file. It handles the extraction
+        and validation automatically.
+
+        Args:
+            request: The validated request object
+
+        Returns:
+            The effective prompt content
+
+        Raises:
+            ValueError: If prompt is too large for MCP transport
+        """
+        # Check for prompt.txt in provided absolute file paths
+        files = req.get_request_files(request)
+        if files:
+            prompt_content, updated_files = self.handle_prompt_file(files)
+
+            # Update request files list if needed
+            if updated_files is not None:
+                req.set_request_files(request, updated_files)
+        else:
+            prompt_content = None
+
+        # Use prompt.txt content if available, otherwise use the prompt field
+        user_content = prompt_content if prompt_content else req.get_request_prompt(request)
+
+        # Check user input size at MCP transport boundary (excluding conversation history)
+        validation_content = self.get_prompt_content_for_size_validation(user_content)
+        size_check = self.check_prompt_size(validation_content)
+        if size_check:
+            raise ValueError(f"MCP_SIZE_CHECK:{ToolOutput(**size_check).model_dump_json()}")
+
+        return user_content
+
+    def get_chat_style_websearch_guidance(self) -> str:
+        """
+        Get Chat tool-style web search guidance.
+
+        Returns web search guidance that matches the original Chat tool pattern.
+        This is useful for tools that want to maintain the same search behavior.
+
+        Returns:
+            Web search guidance text
+        """
+        return """When discussing topics, consider if searches for these would help:
+- Documentation for any technologies or concepts mentioned
+- Current best practices and patterns
+- Recent developments or updates
+- Community discussions and solutions"""
+
+    def get_actually_processed_files(self) -> list:
+        """Get actually processed files. Override for custom file tracking."""
+        try:
+            return self._actually_processed_files
+        except AttributeError:
+            return []
+
+    def _validate_file_paths(self, request) -> Optional[str]:
+        """
+        Validate that all file paths in the request are absolute paths.
+
+        This is a security measure to prevent path traversal attacks and ensure
+        proper access control. All file paths must be absolute (starting with '/').
+
+        Args:
+            request: The validated request object
+
+        Returns:
+            Optional[str]: Error message if validation fails, None if all paths are valid
+        """
+        # Check if request has absolute file paths attribute (legacy tools may still provide 'files')
+        files = req.get_request_files(request)
+        if files:
+            for file_path in files:
+                if not os.path.isabs(file_path):
+                    return (
+                        f"Error: All file paths must be FULL absolute paths to real files / folders - DO NOT SHORTEN. "
+                        f"Received relative path: {file_path}\n"
+                        f"Please provide the full absolute path starting with '/' (must be FULL absolute paths to real files / folders - DO NOT SHORTEN)"
+                    )
+
+        return None
+
+    def prepare_chat_style_prompt(self, request, system_prompt: str = None) -> str:
+        """
+        Prepare a prompt using Chat tool-style patterns.
+
+        This convenience method replicates the Chat tool's prompt preparation logic:
+        1. Handle prompt.txt file if present
+        2. Add file context with specific formatting
+        3. Add web search guidance
+        4. Format with system prompt
+
+        Args:
+            request: The validated request object
+            system_prompt: System prompt to use (uses get_system_prompt() if None)
+
+        Returns:
+            Complete formatted prompt
+        """
+        # Use provided system prompt or get from tool
+        if system_prompt is None:
+            system_prompt = self.get_system_prompt()
+
+        # Get user content (handles prompt.txt files)
+        user_content = self.handle_prompt_file_with_fallback(request)
+
+        # Build standard prompt with Chat-style web search guidance
+        websearch_guidance = self.get_chat_style_websearch_guidance()
+
+        # Override the websearch guidance temporarily
+        original_guidance = self.get_websearch_guidance
+        self.get_websearch_guidance = lambda: websearch_guidance
+
+        try:
+            full_prompt = self.build_standard_prompt(system_prompt, user_content, request, "CONTEXT FILES")
+        finally:
+            # Restore original guidance method
+            self.get_websearch_guidance = original_guidance
+
+        if system_prompt:
+            marker = "\n\n=== USER REQUEST ===\n"
+            if marker in full_prompt:
+                _, user_section = full_prompt.split(marker, 1)
+                return f"=== USER REQUEST ===\n{user_section}"
+
+        return full_prompt
+
+    def get_validated_temperature(self, request, model_context: Any) -> tuple[float, list[str]]:
+        """
+        Get temperature from request and validate it against model constraints.
+
+        This is a convenience method that combines temperature extraction and validation.
+        It ensures temperature is within valid range for the model.
+
+        Args:
+            request: The request object containing temperature
+            model_context: Model context object containing model info
+
+        Returns:
+            Tuple of (validated_temperature, warning_messages)
+        """
+        temperature = req.get_request_temperature(request)
+        if temperature is None:
+            temperature = self.get_default_temperature()
+        return self.validate_and_correct_temperature(temperature, model_context)
+
+    # === REQUEST FIELD ACCESS METHODS ===
+    # These delegate to the standalone functions in request_helpers but are
+    # available as instance methods so subclasses can override them for
+    # custom request handling.
+
+    def get_request_model_name(self, request) -> Optional[str]:
+        """Get model name from request. Override for custom model name handling."""
+        return req.get_request_model_name(request)
+
+    def get_request_images(self, request) -> list:
+        """Get images from request. Override for custom image handling."""
+        return req.get_request_images(request)
+
+    def get_request_continuation_id(self, request) -> Optional[str]:
+        """Get continuation_id from request. Override for custom continuation handling."""
+        return req.get_request_continuation_id(request)
+
+    def get_request_prompt(self, request) -> str:
+        """Get prompt from request. Override for custom prompt handling."""
+        return req.get_request_prompt(request)
+
+    def get_request_temperature(self, request) -> Optional[float]:
+        """Get temperature from request. Override for custom temperature handling."""
+        return req.get_request_temperature(request)
+
+    def get_request_thinking_mode(self, request) -> Optional[str]:
+        """Get thinking_mode from request. Override for custom thinking mode handling."""
+        return req.get_request_thinking_mode(request)
+
+    def get_request_files(self, request) -> list:
+        """Get absolute file paths from request. Override for custom file handling."""
+        return req.get_request_files(request)
+
+    def get_request_as_dict(self, request) -> dict:
+        """Convert request to dictionary. Override for custom serialization."""
+        return req.get_request_as_dict(request)
+
+    def set_request_files(self, request, files: list) -> None:
+        """Set absolute file paths on request. Override for custom file setting."""
+        req.set_request_files(request, files)

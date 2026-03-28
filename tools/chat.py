@@ -22,7 +22,7 @@ from shared_types import ToolModelCategory
 from systemprompts import CHAT_PROMPT, GENERATE_CODE_PROMPT
 from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, ToolRequest
 
-from .simple.base import SimpleTool
+from .shared.base_tool import BaseTool
 
 # Field descriptions matching the original Chat tool exactly
 CHAT_FIELD_DESCRIPTIONS = {
@@ -54,7 +54,7 @@ class ChatRequest(ToolRequest):
     )
 
 
-class ChatTool(SimpleTool):
+class ChatTool(BaseTool):
     """
     General development chat and collaborative thinking tool using SimpleTool architecture.
 

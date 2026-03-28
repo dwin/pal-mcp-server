@@ -25,7 +25,7 @@ from shared_types import ToolModelCategory
 from systemprompts import TESTGEN_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class TestGenRequest(WorkflowRequest):
         return self
 
 
-class TestGenTool(WorkflowTool):
+class TestGenTool(StatefulTool):
     """
     Test Generation workflow tool for step-by-step test planning and expert validation.
 

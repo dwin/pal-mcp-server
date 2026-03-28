@@ -353,7 +353,7 @@ class TestCollaborationWorkflow:
 
     @pytest.mark.asyncio
     @patch("tools.shared.base_tool.BaseTool.get_model_provider")
-    @patch("tools.workflow.workflow_mixin.BaseWorkflowMixin._call_expert_analysis")
+    @patch("tools.workflow.stateful_tool.StatefulTool._call_expert_analysis")
     async def test_dependency_analysis_triggers_clarification(self, mock_expert_analysis, mock_get_provider):
         """Test that asking about dependencies without package files triggers clarification"""
         tool = AnalyzeTool()
@@ -419,7 +419,7 @@ class TestCollaborationWorkflow:
 
     @pytest.mark.asyncio
     @patch("tools.shared.base_tool.BaseTool.get_model_provider")
-    @patch("tools.workflow.workflow_mixin.BaseWorkflowMixin._call_expert_analysis")
+    @patch("tools.workflow.stateful_tool.StatefulTool._call_expert_analysis")
     async def test_multi_step_collaboration(self, mock_expert_analysis, mock_get_provider):
         """Test a multi-step collaboration workflow"""
         tool = AnalyzeTool()

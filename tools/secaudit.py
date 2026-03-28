@@ -27,7 +27,7 @@ from shared_types import ToolModelCategory
 from systemprompts import SECAUDIT_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class SecauditRequest(WorkflowRequest):
         return self
 
 
-class SecauditTool(WorkflowTool):
+class SecauditTool(StatefulTool):
     """
     Comprehensive security audit workflow tool.
 

@@ -26,7 +26,7 @@ from shared_types import ToolModelCategory
 from systemprompts import ANALYZE_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ class AnalyzeWorkflowRequest(WorkflowRequest):
         return self
 
 
-class AnalyzeTool(WorkflowTool):
+class AnalyzeTool(StatefulTool):
     """
     Analyze workflow tool for step-by-step code analysis and expert validation.
 

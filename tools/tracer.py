@@ -29,7 +29,7 @@ from shared_types import ToolModelCategory
 from systemprompts import TRACER_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ class TracerRequest(WorkflowRequest):
         return v
 
 
-class TracerTool(WorkflowTool):
+class TracerTool(StatefulTool):
     """
     Tracer workflow tool for step-by-step code tracing and dependency analysis.
 

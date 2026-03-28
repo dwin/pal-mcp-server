@@ -28,7 +28,7 @@ from systemprompts import CONSENSUS_PROMPT
 from tools.shared.base_models import ConsolidatedFindings, WorkflowRequest
 from utils.conversation_memory import MAX_CONVERSATION_TURNS, create_thread, get_thread
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ class ConsensusRequest(WorkflowRequest):
         return self
 
 
-class ConsensusTool(WorkflowTool):
+class ConsensusTool(StatefulTool):
     """
     Consensus workflow tool for step-by-step multi-model consensus gathering.
 
