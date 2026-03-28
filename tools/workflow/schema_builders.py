@@ -89,18 +89,24 @@ class WorkflowSchemaBuilder:
         excluded_workflow_fields: list[str] = None,
         excluded_common_fields: list[str] = None,
         require_model: bool = False,
+        description_overrides: dict[str, str] = None,
     ) -> dict[str, Any]:
         """
         Build complete schema for workflow tools.
 
         Args:
-            tool_specific_fields: Additional fields specific to the tool
+            tool_specific_fields: Additional fields specific to the tool, or full
+                schema overrides for standard fields (replaces the entire field schema)
             required_fields: List of required field names (beyond workflow defaults)
             model_field_schema: Schema for the model field
             auto_mode: Whether the tool is in auto mode (affects model requirement)
             tool_name: Name of the tool (for schema title)
             excluded_workflow_fields: Workflow fields to exclude from schema (e.g., for planning tools)
             excluded_common_fields: Common fields to exclude from schema
+            description_overrides: Dict mapping field names to custom description strings.
+                This allows tools to customize descriptions for standard workflow/common
+                fields without re-declaring the entire field schema. Applied after
+                workflow and common fields are added but before tool_specific_fields.
 
         Returns:
             Complete JSON schema for the workflow tool
@@ -120,6 +126,13 @@ class WorkflowSchemaBuilder:
             for field in excluded_common_fields:
                 common_fields.pop(field, None)
         properties.update(common_fields)
+
+        # Apply description overrides to existing fields (workflow + common)
+        if description_overrides:
+            for field_name, description in description_overrides.items():
+                if field_name in properties:
+                    # Deep copy the field schema and update just the description
+                    properties[field_name] = {**properties[field_name], "description": description}
 
         # Add model field if provided
         if model_field_schema:

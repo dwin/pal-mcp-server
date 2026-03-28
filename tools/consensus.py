@@ -187,73 +187,12 @@ of the evidence, even when it strongly points in one direction.""",
         """Generate input schema for consensus workflow."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Consensus tool-specific field definitions
-        consensus_field_overrides = {
-            # Override standard workflow fields that need consensus-specific descriptions
-            "step": {
-                "type": "string",
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["step_number"],
-            },
-            "total_steps": {
-                "type": "integer",
-                "minimum": 1,
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["findings"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"],
-            },
-            # consensus-specific fields (not in base workflow)
-            "models": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "model": {"type": "string"},
-                        "stance": {"type": "string", "enum": ["for", "against", "neutral"], "default": "neutral"},
-                        "stance_prompt": {"type": "string"},
-                    },
-                    "required": ["model"],
-                },
-                "description": (
-                    "User-specified roster of models to consult (provide at least two entries). "
-                    + CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["models"]
-                ),
-                "minItems": 2,
-            },
-            "current_model_index": {
-                "type": "integer",
-                "minimum": 0,
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["current_model_index"],
-            },
-            "model_responses": {
-                "type": "array",
-                "items": {"type": "object"},
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["model_responses"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["images"],
-            },
-        }
-
-        # Provide guidance on available models similar to single-model tools
-        model_description = (
+        # Build dynamic model guidance description
+        models_base_desc = (
+            "User-specified roster of models to consult (provide at least two entries). "
+            + CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["models"]
+        )
+        model_guidance = (
             "When the user names a model, you MUST use that exact value or report the "
             "provider error—never swap in another option. Use the `listmodels` tool for the full roster."
         )
@@ -267,46 +206,63 @@ of the evidence, even when it strongly points in one direction.""",
                 top_line = f"{label}: {top_line}; +{remainder} more via `listmodels`."
             else:
                 top_line = f"{label}: {top_line}."
-            model_description = f"{model_description} {top_line}"
+            model_guidance = f"{model_guidance} {top_line}"
         else:
-            model_description = (
-                f"{model_description} No models detected—configure provider credentials or use the `listmodels` tool "
+            model_guidance = (
+                f"{model_guidance} No models detected—configure provider credentials or use the `listmodels` tool "
                 "to inspect availability."
             )
 
         restriction_note = self._get_restriction_note()
         if restriction_note and (remainder > 0 or not summaries):
-            model_description = f"{model_description} {restriction_note}."
+            model_guidance = f"{model_guidance} {restriction_note}."
 
-        existing_models_desc = consensus_field_overrides["models"]["description"]
-        consensus_field_overrides["models"]["description"] = f"{existing_models_desc} {model_description}"
-
-        # Define excluded fields for consensus workflow
-        excluded_workflow_fields = [
-            "files_checked",  # Not used in consensus workflow
-            "relevant_context",  # Not used in consensus workflow
-            "issues_found",  # Not used in consensus workflow
-            "hypothesis",  # Not used in consensus workflow
-            "confidence",  # Not used in consensus workflow
-        ]
-
-        excluded_common_fields = [
-            "model",  # Consensus uses 'models' field instead
-            "temperature",  # Not used in consensus workflow
-            "thinking_mode",  # Not used in consensus workflow
-        ]
+        # Consensus-specific fields (not part of standard workflow schema)
+        consensus_fields = {
+            "models": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "model": {"type": "string"},
+                        "stance": {"type": "string", "enum": ["for", "against", "neutral"], "default": "neutral"},
+                        "stance_prompt": {"type": "string"},
+                    },
+                    "required": ["model"],
+                },
+                "description": f"{models_base_desc} {model_guidance}",
+                "minItems": 2,
+            },
+            "current_model_index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["current_model_index"],
+            },
+            "model_responses": {
+                "type": "array",
+                "items": {"type": "object"},
+                "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["model_responses"],
+            },
+        }
 
         requires_model = self.requires_model()
         model_field_schema = self.get_model_field_schema() if requires_model else None
         auto_mode = self.is_effective_auto_mode() if requires_model else False
 
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=consensus_field_overrides,
+            tool_specific_fields=consensus_fields,
+            description_overrides=CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS,
             model_field_schema=model_field_schema,
             auto_mode=auto_mode,
             tool_name=self.get_name(),
-            excluded_workflow_fields=excluded_workflow_fields,
-            excluded_common_fields=excluded_common_fields,
+            excluded_workflow_fields=[
+                "files_checked",
+                "relevant_context",
+                "issues_found",
+                "hypothesis",
+                "confidence",
+            ],
+            excluded_common_fields=["model", "temperature", "thinking_mode"],
             require_model=requires_model,
         )
 

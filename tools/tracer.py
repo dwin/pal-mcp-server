@@ -145,7 +145,6 @@ class TracerTool(StatefulTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.trace_config = {}
 
     def get_name(self) -> str:
@@ -223,6 +222,7 @@ class TracerTool(StatefulTool):
 
         return WorkflowSchemaBuilder.build_schema(
             tool_specific_fields=self.get_tool_fields(),
+            description_overrides=TRACER_WORKFLOW_FIELD_DESCRIPTIONS,
             required_fields=["target_description", "trace_mode"],  # Step 1 requires these
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),

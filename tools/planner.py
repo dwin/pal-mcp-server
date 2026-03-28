@@ -161,14 +161,8 @@ class PlannerTool(StatefulTool):
         """Generate input schema for planner workflow using override pattern."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Planner tool-specific field definitions
-        planner_field_overrides = {
-            # Override standard workflow fields that need planning-specific descriptions
-            "step": {
-                "type": "string",
-                "description": PLANNER_FIELD_DESCRIPTIONS["step"],  # Very planning-specific instructions
-            },
-            # NEW planning-specific fields (not in base workflow)
+        # Planner-specific fields (not in base workflow)
+        planner_fields = {
             "is_step_revision": {
                 "type": "boolean",
                 "description": PLANNER_FIELD_DESCRIPTIONS["is_step_revision"],
@@ -197,33 +191,22 @@ class PlannerTool(StatefulTool):
             },
         }
 
-        # Define excluded fields for planner workflow
-        excluded_workflow_fields = [
-            "findings",  # Planning uses step content instead
-            "files_checked",  # Planning doesn't examine files
-            "relevant_files",  # Planning doesn't use files
-            "relevant_context",  # Planning doesn't track code context
-            "issues_found",  # Planning doesn't find issues
-            "confidence",  # Planning uses different confidence model
-            "hypothesis",  # Planning doesn't use hypothesis
-        ]
-
-        excluded_common_fields = [
-            "temperature",  # Planning doesn't need temperature control
-            "thinking_mode",  # Planning doesn't need thinking mode
-            "images",  # Planning doesn't use images
-            "absolute_file_paths",  # Planning doesn't use file attachments
-        ]
-
-        # Build schema with proper field exclusion (following consensus pattern)
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=planner_field_overrides,
-            required_fields=[],  # No additional required fields beyond workflow defaults
+            tool_specific_fields=planner_fields,
+            description_overrides=PLANNER_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),
-            excluded_workflow_fields=excluded_workflow_fields,
-            excluded_common_fields=excluded_common_fields,
+            excluded_workflow_fields=[
+                "findings",
+                "files_checked",
+                "relevant_files",
+                "relevant_context",
+                "issues_found",
+                "confidence",
+                "hypothesis",
+            ],
+            excluded_common_fields=["temperature", "thinking_mode", "images", "absolute_file_paths"],
         )
 
     # ================================================================================
