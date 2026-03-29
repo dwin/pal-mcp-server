@@ -551,7 +551,7 @@ class BaseTool(ABC):
         Return the default temperature setting for this tool.
 
         Returns:
-            float: Default temperature (1.0)
+            float: Default temperature from config.DEFAULT_TEMPERATURE
         """
         from config import DEFAULT_TEMPERATURE
 
