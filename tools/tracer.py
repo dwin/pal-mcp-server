@@ -24,7 +24,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
 
-from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from systemprompts import TRACER_PROMPT
 from tools.shared.base_models import WorkflowRequest
@@ -160,12 +159,7 @@ class TracerTool(StatefulTool):
     def get_system_prompt(self) -> str:
         return TRACER_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> ToolModelCategory:
-        """Tracer requires analytical reasoning for code analysis"""
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def requires_model(self) -> bool:
         """

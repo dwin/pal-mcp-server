@@ -399,6 +399,4 @@ class ListModelsTool(BaseTool):
 
         return [TextContent(type="text", text=tool_output.model_dump_json())]
 
-    def get_model_category(self) -> ToolModelCategory:
-        """Return the model category for this tool."""
-        return ToolModelCategory.FAST_RESPONSE  # Simple listing, no AI needed
+    MODEL_CATEGORY = ToolModelCategory.FAST_RESPONSE

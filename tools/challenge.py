@@ -12,7 +12,6 @@ from typing import Any, Optional
 
 from pydantic import Field
 
-from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from tools.shared.base_models import ToolRequest
 from tools.shared.exceptions import ToolExecutionError
@@ -60,12 +59,7 @@ class ChallengeTool(BaseTool):
         # Challenge tool doesn't need a system prompt since it doesn't call AI
         return ""
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> ToolModelCategory:
-        """Challenge doesn't need a model category since it doesn't use AI"""
-        return ToolModelCategory.FAST_RESPONSE  # Default, but not used
+    MODEL_CATEGORY = ToolModelCategory.FAST_RESPONSE
 
     def requires_model(self) -> bool:
         """

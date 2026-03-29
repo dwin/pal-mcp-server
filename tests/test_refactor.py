@@ -109,11 +109,11 @@ class TestRefactorTool:
         assert category == ToolModelCategory.EXTENDED_REASONING
 
     def test_default_temperature(self, refactor_tool):
-        """Test that the refactor tool uses analytical temperature"""
-        from config import TEMPERATURE_ANALYTICAL
+        """Test that the refactor tool uses default temperature"""
+        from config import DEFAULT_TEMPERATURE
 
         temp = refactor_tool.get_default_temperature()
-        assert temp == TEMPERATURE_ANALYTICAL
+        assert temp == DEFAULT_TEMPERATURE
 
     # Note: format_response tests removed - workflow tools use different response format
 

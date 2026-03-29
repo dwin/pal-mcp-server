@@ -21,7 +21,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field
 
-from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from systemprompts import REFACTOR_PROMPT
 from tools.shared.base_models import WorkflowRequest
@@ -163,12 +162,7 @@ class RefactorTool(StatefulTool):
     def get_system_prompt(self) -> str:
         return REFACTOR_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> ToolModelCategory:
-        """Refactor workflow requires thorough analysis and reasoning"""
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the refactor workflow-specific request model."""

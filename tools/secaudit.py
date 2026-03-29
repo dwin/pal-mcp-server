@@ -22,7 +22,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field, model_validator
 
-from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from systemprompts import SECAUDIT_PROMPT
 from tools.shared.base_models import WorkflowRequest
@@ -144,13 +143,7 @@ class SecauditTool(StatefulTool):
         """Return the system prompt for expert security analysis."""
         return SECAUDIT_PROMPT
 
-    def get_default_temperature(self) -> float:
-        """Return the temperature for security audit analysis"""
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> ToolModelCategory:
-        """Return the model category for security audit"""
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self) -> type:
         """Return the workflow request model class"""

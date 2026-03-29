@@ -14,8 +14,6 @@ from pydantic import BaseModel, Field
 from clink import get_registry
 from clink.agents import AgentOutput, CLIAgentError, create_agent
 from clink.models import ResolvedCLIClient, ResolvedCLIRole
-from config import TEMPERATURE_BALANCED
-from shared_types import ToolModelCategory
 from tools.models import ToolOutput
 from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS
 from tools.shared.base_tool import BaseTool
@@ -104,12 +102,6 @@ class CLinkTool(BaseTool):
 
     def requires_model(self) -> bool:
         return False
-
-    def get_model_category(self) -> ToolModelCategory:
-        return ToolModelCategory.BALANCED
-
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_BALANCED
 
     def get_system_prompt(self) -> str:
         return self._active_system_prompt or ""

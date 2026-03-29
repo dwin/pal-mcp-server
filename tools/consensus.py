@@ -22,7 +22,6 @@ from typing import Any
 from mcp.types import TextContent
 from pydantic import Field, model_validator
 
-from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from systemprompts import CONSENSUS_PROMPT
 from tools.shared.base_models import ConsolidatedFindings, WorkflowRequest
@@ -172,12 +171,7 @@ Remember: Artificial balance that misrepresents reality is not helpful. True bal
 of the evidence, even when it strongly points in one direction.""",
         )
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> ToolModelCategory:
-        """Consensus workflow requires extended reasoning"""
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the consensus workflow-specific request model."""

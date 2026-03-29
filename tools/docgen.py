@@ -23,7 +23,6 @@ from typing import Any, Optional
 
 from pydantic import Field
 
-from config import TEMPERATURE_ANALYTICAL
 from shared_types import ToolModelCategory
 from systemprompts import DOCGEN_PROMPT
 from tools.shared.base_models import WorkflowRequest
@@ -106,12 +105,7 @@ class DocgenTool(StatefulTool):
     def get_system_prompt(self) -> str:
         return DOCGEN_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> ToolModelCategory:
-        """Docgen requires analytical and reasoning capabilities"""
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def requires_model(self) -> bool:
         """

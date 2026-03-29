@@ -18,7 +18,6 @@ from typing import Any, Optional
 
 from pydantic import Field
 
-from config import TEMPERATURE_CREATIVE
 from shared_types import ToolModelCategory
 from systemprompts import THINKDEEP_PROMPT
 from tools.shared.base_models import WorkflowRequest
@@ -121,9 +120,7 @@ class ThinkDeepTool(StatefulTool):
         """Return the tool description"""
         return self.description
 
-    def get_model_category(self) -> ToolModelCategory:
-        """Return the model category for this tool"""
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the workflow request model for this tool"""
@@ -157,10 +154,6 @@ class ThinkDeepTool(StatefulTool):
     def get_system_prompt(self) -> str:
         """Return the system prompt for this workflow tool"""
         return THINKDEEP_PROMPT
-
-    def get_default_temperature(self) -> float:
-        """Return default temperature for deep thinking"""
-        return TEMPERATURE_CREATIVE
 
     def get_default_thinking_mode(self) -> str:
         """Return default thinking mode for thinkdeep"""

@@ -42,26 +42,11 @@ IS_AUTO_MODE = DEFAULT_MODEL.lower() == "auto"
 # - Clean separation of concerns (providers own their model definitions)
 
 
-# Temperature defaults for different tool types
+# Default temperature for all tools.
 # NOTE: Gemini 3.0 Pro notes suggest temperature should be set at 1.0
 # in most cases. Lowering it can affect the models 'reasoning' abilities.
 # Newer models / inference stacks are able to handle their randomness better.
-
-# Temperature controls the randomness/creativity of model responses
-# Lower values (0.0-0.3) produce more deterministic, focused responses
-# Higher values (0.7-1.0) produce more creative, varied responses
-
-# TEMPERATURE_ANALYTICAL: Used for tasks requiring precision and consistency
-# Ideal for code review, debugging, and error analysis where accuracy is critical
-TEMPERATURE_ANALYTICAL = 1.0  # For code review, debugging
-
-# TEMPERATURE_BALANCED: Middle ground for general conversations
-# Provides a good balance between consistency and helpful variety
-TEMPERATURE_BALANCED = 1.0  # For general chat
-
-# TEMPERATURE_CREATIVE: Higher temperature for exploratory tasks
-# Used when brainstorming, exploring alternatives, or architectural discussions
-TEMPERATURE_CREATIVE = 1.0  # For architecture, deep thinking
+DEFAULT_TEMPERATURE = 1.0
 
 # Thinking Mode Defaults
 # DEFAULT_THINKING_MODE_THINKDEEP: Default thinking depth for extended reasoning tool
