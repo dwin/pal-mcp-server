@@ -8,6 +8,8 @@ __all__ = [
     "FixedTemperatureConstraint",
     "RangeTemperatureConstraint",
     "DiscreteTemperatureConstraint",
+    "STANDARD_RANGE",
+    "REASONING_FIXED",
 ]
 
 # Common heuristics for determining temperature support when explicit
@@ -108,9 +110,9 @@ class TemperatureConstraint(ABC):
 
         supports_temperature, reason = TemperatureConstraint.infer_support(model_name)
         if supports_temperature:
-            constraint: TemperatureConstraint = RangeTemperatureConstraint(0.0, 2.0, 0.7)
+            constraint: TemperatureConstraint = STANDARD_RANGE
         else:
-            constraint = FixedTemperatureConstraint(1.0)
+            constraint = REASONING_FIXED
 
         return supports_temperature, constraint, reason
 
@@ -119,13 +121,12 @@ class TemperatureConstraint(ABC):
         """Factory that yields the appropriate constraint for a configuration hint."""
 
         if constraint_type == "fixed":
-            # Fixed temperature models (O3/O4) only support temperature=1.0
-            return FixedTemperatureConstraint(1.0)
+            return REASONING_FIXED
         if constraint_type == "discrete":
             # For models with specific allowed values - using common OpenAI values as default
-            return DiscreteTemperatureConstraint([0.0, 0.3, 0.7, 1.0, 1.5, 2.0], 0.3)
+            return DiscreteTemperatureConstraint([0.0, 0.3, 0.7, 1.0, 1.5, 2.0], 1.0)
         # Default range constraint (for "range" or None)
-        return RangeTemperatureConstraint(0.0, 2.0, 0.3)
+        return STANDARD_RANGE
 
 
 class FixedTemperatureConstraint(TemperatureConstraint):
@@ -186,3 +187,20 @@ class DiscreteTemperatureConstraint(TemperatureConstraint):
 
     def get_default(self) -> float:
         return self.default_temp
+
+
+# ---------------------------------------------------------------------------
+# Shared constraint templates
+#
+# Use these named constants instead of constructing new constraint instances
+# with magic numbers.  This ensures temperature defaults are consistent
+# across all providers and the ``ModelCapabilities`` dataclass default.
+# ---------------------------------------------------------------------------
+
+#: Standard range for most models.  Default 1.0 aligns with the project-wide
+#: convention (see ``config.py`` temperature notes for Gemini 3.0 Pro).
+STANDARD_RANGE: TemperatureConstraint = RangeTemperatureConstraint(0.0, 2.0, 1.0)
+
+#: Fixed temperature for reasoning models (O-series, DeepSeek-R1, etc.)
+#: that only accept temperature=1.0.
+REASONING_FIXED: TemperatureConstraint = FixedTemperatureConstraint(1.0)

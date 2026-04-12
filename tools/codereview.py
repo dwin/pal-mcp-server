@@ -17,18 +17,15 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import CODEREVIEW_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +81,7 @@ class CodeReviewRequest(WorkflowRequest):
     issues_found: list[dict] = Field(
         default_factory=list, description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"]
     )
-    # Deprecated confidence field kept for backward compatibility only
+    # Exclude inherited confidence field — codereview uses get_confidence_level() instead
     confidence: Optional[str] = Field("low", exclude=True)
     review_validation_type: Optional[Literal["external", "internal"]] = Field(
         "external", description=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS.get("review_validation_type", "")
@@ -107,15 +104,13 @@ class CodeReviewRequest(WorkflowRequest):
     temperature: Optional[float] = Field(default=None, exclude=True)
     thinking_mode: Optional[str] = Field(default=None, exclude=True)
 
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required relevant_files field."""
-        if self.step_number == 1 and not self.relevant_files:
-            raise ValueError("Step 1 requires 'relevant_files' field to specify code files or directories to review")
-        return self
+    # Declarative step-1 validation: require relevant_files on step 1
+    _step_one_required_fields = [
+        ("relevant_files", "Step 1 requires 'relevant_files' field to specify code files or directories to review"),
+    ]
 
 
-class CodeReviewTool(WorkflowTool):
+class CodeReviewTool(StatefulTool):
     """
     Code Review workflow tool for step-by-step code review and expert analysis.
 
@@ -127,7 +122,6 @@ class CodeReviewTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.review_config = {}
 
     def get_name(self) -> str:
@@ -143,14 +137,7 @@ class CodeReviewTool(WorkflowTool):
     def get_system_prompt(self) -> str:
         return CODEREVIEW_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Code review requires thorough analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the code review workflow-specific request model."""
@@ -160,57 +147,14 @@ class CodeReviewTool(WorkflowTool):
         """Generate input schema using WorkflowSchemaBuilder with code review-specific overrides."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Code review workflow-specific field overrides
-        codereview_field_overrides = {
-            "step": {
-                "type": "string",
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["step_number"],
-            },
-            "total_steps": {
-                "type": "integer",
-                "minimum": 1,
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["findings"],
-            },
-            "files_checked": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"],
-            },
+        # Code review-specific fields (not part of standard workflow schema)
+        codereview_fields = {
             "review_validation_type": {
                 "type": "string",
                 "enum": ["external", "internal"],
                 "default": "external",
                 "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS.get("review_validation_type", ""),
             },
-            "issues_found": {
-                "type": "array",
-                "items": {"type": "object"},
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["images"],
-            },
-            # Code review-specific fields (for step 1)
             "review_type": {
                 "type": "string",
                 "enum": ["full", "security", "performance", "quick"],
@@ -233,9 +177,9 @@ class CodeReviewTool(WorkflowTool):
             },
         }
 
-        # Use WorkflowSchemaBuilder with code review-specific tool fields
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=codereview_field_overrides,
+            tool_specific_fields=codereview_fields,
+            description_overrides=CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),

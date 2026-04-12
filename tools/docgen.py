@@ -19,18 +19,15 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import DOCGEN_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +79,7 @@ class DocgenRequest(WorkflowRequest):
     )
 
 
-class DocgenTool(WorkflowTool):
+class DocgenTool(StatefulTool):
     """
     Documentation generation tool for automated code documentation with complexity analysis.
 
@@ -94,10 +91,6 @@ class DocgenTool(WorkflowTool):
     - Inline comments for complex logic
     - Modern documentation style appropriate for the language/platform
     """
-
-    def __init__(self):
-        super().__init__()
-        self.initial_request = None
 
     def get_name(self) -> str:
         return "docgen"
@@ -112,14 +105,7 @@ class DocgenTool(WorkflowTool):
     def get_system_prompt(self) -> str:
         return DOCGEN_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Docgen requires analytical and reasoning capabilities"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def requires_model(self) -> bool:
         """
@@ -210,6 +196,7 @@ class DocgenTool(WorkflowTool):
 
         return WorkflowSchemaBuilder.build_schema(
             tool_specific_fields=self.get_tool_fields(),
+            description_overrides=DOCGEN_FIELD_DESCRIPTIONS,
             required_fields=self.get_required_fields(),  # Include docgen-specific required fields
             model_field_schema=None,  # Exclude model field - docgen doesn't need external model selection
             auto_mode=False,  # Force non-auto mode to prevent model field addition

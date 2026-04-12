@@ -22,6 +22,7 @@ import asyncio
 import atexit
 import logging
 import os
+import signal
 import sys
 import time
 from logging.handlers import RotatingFileHandler
@@ -51,6 +52,7 @@ from tools import (  # noqa: E402
     AnalyzeTool,
     ChallengeTool,
     ChatTool,
+    ClinkListModelsTool,
     CLinkTool,
     CodeReviewTool,
     ConsensusTool,
@@ -151,6 +153,75 @@ except Exception as e:
     print(f"Warning: Could not set up file logging: {e}", file=sys.stderr)
 
 logger = logging.getLogger(__name__)
+
+_provider_cleanup_registered = False
+_provider_cleanup_done = False
+
+
+def cleanup_providers():
+    """Clean up registered providers without creating a registry during shutdown.
+
+    Called from both the atexit handler and the run() finally block.  The guard
+    flag ensures providers are only closed once even when both paths fire.
+
+    If provider startup never created a registry instance, cleanup is skipped
+    quietly so interpreter teardown does not instantiate new objects or emit
+    late shutdown logging.
+    """
+    global _provider_cleanup_done
+    if _provider_cleanup_done:
+        return
+    _provider_cleanup_done = True
+
+    try:
+        from providers.registry import ModelProviderRegistry
+
+        registry = ModelProviderRegistry.get_existing_instance()
+        if registry and hasattr(registry, "_initialized_providers"):
+            for provider in list(registry._initialized_providers.values()):
+                try:
+                    if provider and hasattr(provider, "close"):
+                        provider.close()
+                except Exception:
+                    # Logger might be closed during shutdown
+                    pass
+    except Exception:
+        # Silently ignore any errors during cleanup
+        pass
+
+
+def register_provider_cleanup():
+    """Register provider cleanup once for normal interpreter shutdown."""
+    global _provider_cleanup_registered
+    if _provider_cleanup_registered:
+        return
+
+    atexit.register(cleanup_providers)
+    _provider_cleanup_registered = True
+
+
+def shutdown_handler(signum, _frame):
+    """Convert process signals into a graceful server shutdown."""
+    try:
+        signal_name = signal.Signals(signum).name
+    except (AttributeError, TypeError, ValueError):
+        signal_name = f"signal {signum}" if signum is not None else "shutdown handler called with no signal"
+
+    logger.info(f"Received {signal_name}; starting graceful shutdown")
+    raise KeyboardInterrupt
+
+
+def register_signal_handlers():
+    """Register signal handlers for graceful server shutdown."""
+    for shutdown_signal in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(shutdown_signal, shutdown_handler)
+
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+    except (AttributeError, ValueError):
+        # SIGPIPE is not available or configurable on every platform/runtime.
+        pass
+
 
 # Log PAL_MCP_FORCE_ENV_OVERRIDE configuration for transparency
 if env_override_enabled():
@@ -276,6 +347,7 @@ TOOLS = {
     "challenge": ChallengeTool(),  # Critical challenge prompt wrapper to avoid automatic agreement
     "apilookup": LookupTool(),  # Quick web/API lookup instructions
     "listmodels": ListModelsTool(),  # List all available AI models by provider
+    "clink_listmodels": ClinkListModelsTool(),  # List available models for clink CLI clients
     "version": VersionTool(),  # Display server version and system information
 }
 TOOLS = filter_disabled_tools(TOOLS)
@@ -385,6 +457,8 @@ def configure_providers():
     Raises:
         ValueError: If no valid API keys are found or conflicting configurations detected
     """
+    logger.info("Validating provider configuration at startup...")
+
     # Log environment variable status for debugging
     logger.debug("Checking environment variables for API keys...")
     api_keys_to_check = ["OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "CUSTOM_API_URL"]
@@ -552,7 +626,7 @@ def configure_providers():
             "- CUSTOM_API_URL for local models (Ollama, vLLM, etc.)"
         )
 
-    logger.info(f"Available providers: {', '.join(valid_providers)}")
+    logger.info(f"Startup provider availability: {', '.join(valid_providers)}")
 
     # Log provider priority
     priority_info = []
@@ -566,25 +640,7 @@ def configure_providers():
     if len(priority_info) > 1:
         logger.info(f"Provider priority: {' → '.join(priority_info)}")
 
-    # Register cleanup function for providers
-    def cleanup_providers():
-        """Clean up all registered providers on shutdown."""
-        try:
-            registry = ModelProviderRegistry()
-            if hasattr(registry, "_initialized_providers"):
-                # Iterate over provider instances (values), not (type, instance) tuples
-                for provider in list(registry._initialized_providers.values()):
-                    try:
-                        if provider and hasattr(provider, "close"):
-                            provider.close()
-                    except Exception:
-                        # Logger might be closed during shutdown
-                        pass
-        except Exception:
-            # Silently ignore any errors during cleanup
-            pass
-
-    atexit.register(cleanup_providers)
+    register_provider_cleanup()
 
     # Check and log model restrictions
     restriction_service = get_restriction_service()
@@ -785,7 +841,6 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
         # EARLY MODEL RESOLUTION AT MCP BOUNDARY
         # Resolve model before passing to tool - this ensures consistent model handling
         # NOTE: Consensus tool is exempt as it handles multiple models internally
-        from providers.registry import ModelProviderRegistry
         from utils.file_utils import check_total_file_size
         from utils.model_context import ModelContext
 
@@ -809,37 +864,24 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
             # Execute tool directly without model context
             return await tool.execute(arguments)
 
-        # Handle auto mode at MCP boundary - resolve to specific model
-        if model_name.lower() == "auto":
-            # Get tool category to determine appropriate model
-            tool_category = tool.get_model_category()
-            resolved_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
-            logger.info(f"Auto mode resolved to {resolved_model} for {name} (category: {tool_category.value})")
-            model_name = resolved_model
-            # Update arguments with resolved model
-            arguments["model"] = model_name
+        # Resolve model: handles auto-mode and validates availability
+        from providers.model_selector import ModelSelector
 
-        # Validate model availability at MCP boundary
-        provider = ModelProviderRegistry.get_provider_for_model(model_name)
-        if not provider:
-            # Get list of available models for error message
-            available_models = list(ModelProviderRegistry.get_available_models(respect_restrictions=True).keys())
-            tool_category = tool.get_model_category()
-            suggested_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
-
-            error_message = (
-                f"Model '{model_name}' is not available with current API keys. "
-                f"Available models: {', '.join(available_models)}. "
-                f"Suggested model for {name}: '{suggested_model}' "
-                f"(category: {tool_category.value})"
+        try:
+            model_name, provider = ModelSelector.resolve_and_validate(
+                model_name,
+                tool.get_model_category(),
+                name,
             )
+        except ValueError as exc:
             error_output = ToolOutput(
                 status="error",
-                content=error_message,
+                content=str(exc),
                 content_type="text",
                 metadata={"tool_name": name, "requested_model": model_name},
             )
             raise ToolExecutionError(error_output.model_dump_json())
+        arguments["model"] = model_name
 
         # Create model context with resolved model and option
         model_context = ModelContext(model_name, model_option)
@@ -1111,92 +1153,54 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
     # Resolve an effective model for context reconstruction when DEFAULT_MODEL=auto
     model_context = arguments.get("_model_context")
 
+    from providers.model_selector import ModelSelector
+
+    tool_category = tool.get_model_category() if tool is not None else None
+
     if requires_model:
         if model_context is None:
             try:
                 model_context = ModelContext.from_arguments(arguments)
                 arguments.setdefault("_resolved_model_name", model_context.model_name)
             except ValueError as exc:
-                from providers.registry import ModelProviderRegistry
-
-                fallback_model = None
-                if tool is not None:
-                    try:
-                        fallback_model = ModelProviderRegistry.get_preferred_fallback_model(tool.get_model_category())
-                    except Exception as fallback_exc:  # pragma: no cover - defensive log
-                        logger.debug(
-                            f"[CONVERSATION_DEBUG] Unable to resolve fallback model for {context.tool_name}: {fallback_exc}"
-                        )
-
-                if fallback_model is None:
-                    available_models = ModelProviderRegistry.get_available_model_names()
-                    if available_models:
-                        fallback_model = available_models[0]
-
+                fallback_model = ModelSelector.resolve_fallback(tool_category)
                 if fallback_model is None:
                     raise
 
                 logger.debug(
-                    f"[CONVERSATION_DEBUG] Falling back to model '{fallback_model}' for context reconstruction after error: {exc}"
+                    "[CONVERSATION_DEBUG] Falling back to model '%s' for context reconstruction after error: %s",
+                    fallback_model,
+                    exc,
                 )
                 model_context = ModelContext(fallback_model)
                 arguments["_model_context"] = model_context
                 arguments["_resolved_model_name"] = fallback_model
 
-        from providers.registry import ModelProviderRegistry
-
-        provider = ModelProviderRegistry.get_provider_for_model(model_context.model_name)
-        if provider is None:
-            fallback_model = None
-            if tool is not None:
-                try:
-                    fallback_model = ModelProviderRegistry.get_preferred_fallback_model(tool.get_model_category())
-                except Exception as fallback_exc:  # pragma: no cover - defensive log
-                    logger.debug(
-                        f"[CONVERSATION_DEBUG] Unable to resolve fallback model for {context.tool_name}: {fallback_exc}"
-                    )
-
-            if fallback_model is None:
-                available_models = ModelProviderRegistry.get_available_model_names()
-                if available_models:
-                    fallback_model = available_models[0]
-
-            if fallback_model is None:
-                raise ValueError(
-                    f"Conversation continuation failed: model '{model_context.model_name}' is not available with current API keys."
-                )
-
+        # Verify the resolved model is still available
+        resolved = ModelSelector.resolve_for_context_reconstruction(
+            model_context.model_name,
+            tool_category,
+        )
+        if resolved != model_context.model_name:
             logger.debug(
-                f"[CONVERSATION_DEBUG] Model '{model_context.model_name}' unavailable; swapping to '{fallback_model}' for context reconstruction"
+                "[CONVERSATION_DEBUG] Model '%s' unavailable; swapping to '%s' for context reconstruction",
+                model_context.model_name,
+                resolved,
             )
-            model_context = ModelContext(fallback_model)
+            model_context = ModelContext(resolved)
             arguments["_model_context"] = model_context
-            arguments["_resolved_model_name"] = fallback_model
+            arguments["_resolved_model_name"] = resolved
     else:
         if model_context is None:
-            from providers.registry import ModelProviderRegistry
-
-            fallback_model = None
-            if tool is not None:
-                try:
-                    fallback_model = ModelProviderRegistry.get_preferred_fallback_model(tool.get_model_category())
-                except Exception as fallback_exc:  # pragma: no cover - defensive log
-                    logger.debug(
-                        f"[CONVERSATION_DEBUG] Unable to resolve fallback model for {context.tool_name}: {fallback_exc}"
-                    )
-
-            if fallback_model is None:
-                available_models = ModelProviderRegistry.get_available_model_names()
-                if available_models:
-                    fallback_model = available_models[0]
-
+            fallback_model = ModelSelector.resolve_fallback(tool_category)
             if fallback_model is None:
                 raise ValueError(
                     "Conversation continuation failed: no available models detected for context reconstruction."
                 )
 
             logger.debug(
-                f"[CONVERSATION_DEBUG] Using fallback model '{fallback_model}' for context reconstruction of tool without model requirement"
+                "[CONVERSATION_DEBUG] Using fallback model '%s' for context reconstruction of tool without model requirement",
+                fallback_model,
             )
             model_context = ModelContext(fallback_model)
             arguments["_model_context"] = model_context
@@ -1515,11 +1519,13 @@ async def main():
 
 def run():
     """Console script entry point for pal-mcp-server."""
+    register_signal_handlers()
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        # Handle graceful shutdown
-        pass
+        logger.info("PAL MCP Server shutdown requested")
+    finally:
+        cleanup_providers()
 
 
 if __name__ == "__main__":

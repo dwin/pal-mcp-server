@@ -4,24 +4,48 @@ This file contains essential commands and workflows for developing and maintaini
 
 ## Quick Reference Commands
 
+### Using uv for Commands
+
+This project uses `uv` for dependency management. All Python commands should be run via `uv run` which automatically uses the correct virtual environment:
+
+```bash
+# Run any Python command via uv
+uv run python script.py
+uv run pytest tests/
+uv run ruff check .
+
+# Or activate the venv manually (less preferred)
+source .pal_venv/bin/activate
+```
+
 ### Code Quality Checks
 
 Before making any changes or submitting PRs, always run the comprehensive quality checks:
 
 ```bash
-# Activate virtual environment first
-source venv/bin/activate
-
 # Run all quality checks (linting, formatting, tests)
 ./code_quality_checks.sh
 ```
 
 This script automatically runs:
 - Ruff linting with auto-fix
-- Black code formatting 
+- Black code formatting
 - Import sorting with isort
 - Complete unit test suite (excluding integration tests)
 - Verification that all checks pass 100%
+
+**Running linters manually:**
+```bash
+# Via uv (preferred)
+uv run ruff check . --fix
+uv run black .
+uv run isort .
+
+# Check without applying changes
+uv run ruff check .
+uv run black --check .
+uv run isort --check-only .
+```
 
 **Run Integration Tests (requires API keys):**
 ```bash
@@ -121,20 +145,23 @@ API keys to ensure the models are working and the server is able to communicate 
 
 #### Run All Simulator Tests
 ```bash
-# Run the complete test suite
-python communication_simulator_test.py
+# Preferred: run via pytest directly
+uv run pytest simulator_tests/test_pytest_adapter.py
 
-# Run tests with verbose output
-python communication_simulator_test.py --verbose
+# Legacy wrapper (delegates to pytest)
+uv run python communication_simulator_test.py
+
+# Verbose output
+uv run pytest simulator_tests/test_pytest_adapter.py -vv
 ```
 
 #### Quick Test Mode (Recommended for Time-Limited Testing)
 ```bash
 # Run quick test mode - 6 essential tests that provide maximum functionality coverage
-python communication_simulator_test.py --quick
+uv run pytest simulator_tests/test_pytest_adapter.py -m quick
 
-# Run quick test mode with verbose output
-python communication_simulator_test.py --quick --verbose
+# Legacy wrapper
+uv run python communication_simulator_test.py --quick
 ```
 
 **Quick mode runs these 6 essential tests:**
@@ -152,19 +179,18 @@ python communication_simulator_test.py --quick --verbose
 #### Run Individual Simulator Tests (For Detailed Testing)
 ```bash
 # List all available tests
-python communication_simulator_test.py --list-tests
+uv run python communication_simulator_test.py --list-tests
 
-# RECOMMENDED: Run tests individually for better isolation and debugging
-python communication_simulator_test.py --individual basic_conversation
-python communication_simulator_test.py --individual content_validation
-python communication_simulator_test.py --individual cross_tool_continuation
-python communication_simulator_test.py --individual memory_validation
+# RECOMMENDED: Run tests individually via pytest -k filter
+uv run pytest simulator_tests/test_pytest_adapter.py -k basic_conversation
+uv run pytest simulator_tests/test_pytest_adapter.py -k content_validation
+uv run pytest simulator_tests/test_pytest_adapter.py -k cross_tool_continuation
 
 # Run multiple specific tests
-python communication_simulator_test.py --tests basic_conversation content_validation
+uv run pytest simulator_tests/test_pytest_adapter.py -k "basic_conversation or content_validation"
 
-# Run individual test with verbose output for debugging
-python communication_simulator_test.py --individual memory_validation --verbose
+# Legacy wrapper (still works)
+uv run python communication_simulator_test.py --individual basic_conversation --verbose
 ```
 
 Available simulator tests include:
@@ -191,16 +217,16 @@ Available simulator tests include:
 #### Run Unit Tests Only
 ```bash
 # Run all unit tests (excluding integration tests that require API keys)
-python -m pytest tests/ -v -m "not integration"
+uv run pytest tests/ -v -m "not integration"
 
 # Run specific test file
-python -m pytest tests/test_refactor.py -v
+uv run pytest tests/test_refactor.py -v
 
 # Run specific test function
-python -m pytest tests/test_refactor.py::TestRefactorTool::test_format_response -v
+uv run pytest tests/test_refactor.py::TestRefactorTool::test_format_response -v
 
 # Run tests with coverage
-python -m pytest tests/ --cov=. --cov-report=html -m "not integration"
+uv run pytest tests/ --cov=. --cov-report=html -m "not integration"
 ```
 
 #### Run Integration Tests (Uses Free Local Models)
@@ -223,13 +249,13 @@ export CUSTOM_API_URL="http://localhost:11434"
 **Run Integration Tests:**
 ```bash
 # Run integration tests that make real API calls to local models
-python -m pytest tests/ -v -m "integration"
+uv run pytest tests/ -v -m "integration"
 
 # Run specific integration test
-python -m pytest tests/test_prompt_regression.py::TestPromptIntegration::test_chat_normal_prompt -v
+uv run pytest tests/test_prompt_regression.py::TestPromptIntegration::test_chat_normal_prompt -v
 
 # Run all tests (unit + integration)
-python -m pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 **Note**: Integration tests use the local-llama model via Ollama, which is completely FREE to run unlimited times. Requires `CUSTOM_API_URL` environment variable set to your local Ollama endpoint. They can be run safely in CI/CD but are excluded from code quality checks to keep them fast.
@@ -237,22 +263,21 @@ python -m pytest tests/ -v
 ### Development Workflow
 
 #### Before Making Changes
-1. Ensure virtual environment is activated: `source .pal_venv/bin/activate`
-2. Run quality checks: `./code_quality_checks.sh`
-3. Check logs to ensure server is healthy: `tail -n 50 logs/mcp_server.log`
+1. Run quality checks: `./code_quality_checks.sh`
+2. Check logs to ensure server is healthy: `tail -n 50 logs/mcp_server.log`
 
 #### After Making Changes
 1. Run quality checks again: `./code_quality_checks.sh`
 2. Run integration tests locally: `./run_integration_tests.sh`
-3. Run quick test mode for fast validation: `python communication_simulator_test.py --quick`
-4. Run relevant specific simulator tests if needed: `python communication_simulator_test.py --individual <test_name>`
+3. Run quick test mode for fast validation: `uv run python communication_simulator_test.py --quick`
+4. Run relevant specific simulator tests if needed: `uv run python communication_simulator_test.py --individual <test_name>`
 5. Check logs for any issues: `tail -n 100 logs/mcp_server.log`
 6. Restart Claude session to use updated code
 
 #### Before Committing/PR
 1. Final quality check: `./code_quality_checks.sh`
 2. Run integration tests: `./run_integration_tests.sh`
-3. Run quick test mode: `python communication_simulator_test.py --quick`
+3. Run quick test mode: `uv run python communication_simulator_test.py --quick`
 4. Run full simulator test suite (optional): `./run_integration_tests.sh --with-simulator`
 5. Verify all tests pass 100%
 
@@ -274,29 +299,29 @@ which python
 #### Test Failures
 ```bash
 # First try quick test mode to see if it's a general issue
-python communication_simulator_test.py --quick --verbose
+uv run python communication_simulator_test.py --quick --verbose
 
 # Run individual failing test with verbose output
-python communication_simulator_test.py --individual <test_name> --verbose
+uv run python communication_simulator_test.py --individual <test_name> --verbose
 
 # Check server logs during test execution
 tail -f logs/mcp_server.log
 
 # Run tests with debug output
-LOG_LEVEL=DEBUG python communication_simulator_test.py --individual <test_name>
+LOG_LEVEL=DEBUG uv run python communication_simulator_test.py --individual <test_name>
 ```
 
 #### Linting Issues
 ```bash
-# Auto-fix most linting issues
-ruff check . --fix
-black .
-isort .
+# Auto-fix most linting issues (via uv)
+uv run ruff check . --fix
+uv run black .
+uv run isort .
 
 # Check what would be changed without applying
-ruff check .
-black --check .
-isort --check-only .
+uv run ruff check .
+uv run black --check .
+uv run isort --check-only .
 ```
 
 ### File Structure Context
@@ -314,7 +339,7 @@ isort --check-only .
 ### Environment Requirements
 
 - Python 3.9+ with virtual environment
-- All dependencies from `requirements.txt` installed
+- All dependencies installed via `uv sync`
 - Proper API keys configured in `.env` file
 
 This guide provides everything needed to efficiently work with the PAL MCP Server codebase using Claude. Always run quality checks before and after making changes to ensure code integrity.

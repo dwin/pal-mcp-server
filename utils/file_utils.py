@@ -48,36 +48,6 @@ from .file_types import BINARY_EXTENSIONS, CODE_EXTENSIONS, IMAGE_EXTENSIONS, TE
 from .security_config import EXCLUDED_DIRS, is_dangerous_path
 from .token_utils import DEFAULT_CONTEXT_WINDOW, estimate_tokens
 
-
-def _is_builtin_custom_models_config(path_str: str) -> bool:
-    """
-    Check if path points to the server's built-in custom_models.json config file.
-
-    This only matches the server's internal config, not user-specified CUSTOM_MODELS_CONFIG_PATH.
-    We identify the built-in config by checking if it resolves to the server's conf directory.
-
-    Args:
-        path_str: Path to check
-
-    Returns:
-        True if this is the server's built-in custom_models.json config file
-    """
-    try:
-        path = Path(path_str)
-
-        # Get the server root by going up from this file: utils/file_utils.py -> server_root
-        server_root = Path(__file__).parent.parent
-        builtin_config = server_root / "conf" / "custom_models.json"
-
-        # Check if the path resolves to the same file as our built-in config
-        # This handles both relative and absolute paths to the same file
-        return path.resolve() == builtin_config.resolve()
-
-    except Exception:
-        # If path resolution fails, it's not our built-in config
-        return False
-
-
 logger = logging.getLogger(__name__)
 
 

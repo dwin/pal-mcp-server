@@ -33,8 +33,11 @@ Regardless of architecture, subclasses of `BaseTool` must provide:
   `prepare_chat_style_prompt` or `build_standard_prompt`.
 
 The base class already handles model selection (`ToolModelCategory`), conversation memory, token budgeting, safety
-failures, retries, and serialization. Override hooks like `get_default_temperature`, `get_model_category`, or
-`format_response` only when you need behaviour different from the defaults.
+failures, retries, and serialization. Set the `MODEL_CATEGORY` class attribute to change model selection behaviour,
+and override hooks like `format_response` only when you need behaviour different from the defaults; in rare cases
+where a tool truly requires different sampling or reasoning behaviour, you can also override advanced hooks such
+as `get_default_temperature` or `get_default_thinking_mode`, but this should generally be avoided so tools remain
+consistent with the shared infrastructure.
 
 ## 3. Implementing a Simple Tool
 
@@ -47,7 +50,7 @@ failures, retries, and serialization. Override hooks like `get_default_temperatu
 from pydantic import Field
 from systemprompts import CHAT_PROMPT
 from tools.shared.base_models import ToolRequest
-from tools.simple.base import SimpleTool
+from tools.shared.base_tool import BaseTool
 
 class ChatRequest(ToolRequest):
     prompt: str = Field(..., description="Your question or idea.")
@@ -57,7 +60,7 @@ class ChatRequest(ToolRequest):
         description="Absolute path to an existing directory where generated code can be saved.",
     )
 
-class ChatTool(SimpleTool):
+class ChatTool(BaseTool):
     def get_name(self) -> str:  # required by BaseTool
         return "chat"
 
@@ -107,12 +110,12 @@ Workflow tools extend `WorkflowTool`, which mixes in `BaseWorkflowMixin` for ste
 from pydantic import Field
 from systemprompts import CONSENSUS_PROMPT
 from tools.shared.base_models import WorkflowRequest
-from tools.workflow.base import WorkflowTool
+from tools.workflow.stateful_tool import StatefulTool
 
 class ConsensusRequest(WorkflowRequest):
     models: list[dict] = Field(..., description="Models to consult (with optional stance).")
 
-class ConsensusTool(WorkflowTool):
+class ConsensusTool(StatefulTool):
     def get_name(self) -> str:
         return "consensus"
 

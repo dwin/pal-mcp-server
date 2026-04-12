@@ -42,26 +42,11 @@ IS_AUTO_MODE = DEFAULT_MODEL.lower() == "auto"
 # - Clean separation of concerns (providers own their model definitions)
 
 
-# Temperature defaults for different tool types
+# Default temperature for all tools.
 # NOTE: Gemini 3.0 Pro notes suggest temperature should be set at 1.0
 # in most cases. Lowering it can affect the models 'reasoning' abilities.
 # Newer models / inference stacks are able to handle their randomness better.
-
-# Temperature controls the randomness/creativity of model responses
-# Lower values (0.0-0.3) produce more deterministic, focused responses
-# Higher values (0.7-1.0) produce more creative, varied responses
-
-# TEMPERATURE_ANALYTICAL: Used for tasks requiring precision and consistency
-# Ideal for code review, debugging, and error analysis where accuracy is critical
-TEMPERATURE_ANALYTICAL = 1.0  # For code review, debugging
-
-# TEMPERATURE_BALANCED: Middle ground for general conversations
-# Provides a good balance between consistency and helpful variety
-TEMPERATURE_BALANCED = 1.0  # For general chat
-
-# TEMPERATURE_CREATIVE: Higher temperature for exploratory tasks
-# Used when brainstorming, exploring alternatives, or architectural discussions
-TEMPERATURE_CREATIVE = 1.0  # For architecture, deep thinking
+DEFAULT_TEMPERATURE = 1.0
 
 # Thinking Mode Defaults
 # DEFAULT_THINKING_MODE_THINKDEEP: Default thinking depth for extended reasoning tool
@@ -115,28 +100,15 @@ DEFAULT_CONSENSUS_MAX_INSTANCES_PER_COMBINATION = 2
 
 
 def _calculate_mcp_prompt_limit() -> int:
+    """Calculate MCP prompt size limit based on MAX_MCP_OUTPUT_TOKENS.
+
+    Allocates 60% of the token budget for input, at ~4 chars/token.
+    Falls back to 60 000 characters (~15k tokens of a 25k total budget).
     """
-    Calculate MCP prompt size limit based on MAX_MCP_OUTPUT_TOKENS environment variable.
-
-    Returns:
-        Maximum character count for user input prompts
-    """
-    # Check for Claude's MAX_MCP_OUTPUT_TOKENS environment variable
-    max_tokens_str = get_env("MAX_MCP_OUTPUT_TOKENS")
-
-    if max_tokens_str:
-        try:
-            max_tokens = int(max_tokens_str)
-            # Allocate 60% of tokens for input, convert to characters (~4 chars per token)
-            input_token_budget = int(max_tokens * 0.6)
-            character_limit = input_token_budget * 4
-            return character_limit
-        except (ValueError, TypeError):
-            # Fall back to default if MAX_MCP_OUTPUT_TOKENS is not a valid integer
-            pass
-
-    # Default fallback: 60,000 characters (equivalent to ~15k tokens input of 25k total)
-    return 60_000
+    try:
+        return int(int(get_env("MAX_MCP_OUTPUT_TOKENS")) * 0.6) * 4
+    except (ValueError, TypeError):
+        return 60_000
 
 
 MCP_PROMPT_SIZE_LIMIT = _calculate_mcp_prompt_limit()

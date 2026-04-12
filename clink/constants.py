@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 DEFAULT_TIMEOUT_SECONDS = 1800
 DEFAULT_STREAM_LIMIT = 10 * 1024 * 1024  # 10MB per stream
@@ -28,8 +29,8 @@ class CLIInternalDefaults:
 
 INTERNAL_DEFAULTS: dict[str, CLIInternalDefaults] = {
     "gemini": CLIInternalDefaults(
-        parser="gemini_json",
-        additional_args=["-o", "json"],
+        parser="gemini_stream_json",
+        additional_args=["--output-format", "stream-json"],
         default_role_prompt="systemprompts/clink/default.txt",
         runner="gemini",
     ),
@@ -40,15 +41,39 @@ INTERNAL_DEFAULTS: dict[str, CLIInternalDefaults] = {
         runner="codex",
     ),
     "claude": CLIInternalDefaults(
-        parser="claude_json",
-        additional_args=["--print", "--output-format", "json"],
+        parser="claude_stream_json",
+        additional_args=["--print", "--output-format", "stream-json", "--verbose"],
         default_role_prompt="systemprompts/clink/default.txt",
         runner="claude",
     ),
     "cursor": CLIInternalDefaults(
-        parser="cursor_json",
-        additional_args=["--print", "--output-format", "json"],
+        parser="cursor_stream_json",
+        additional_args=["--print", "--output-format", "stream-json"],
         default_role_prompt="systemprompts/clink/default.txt",
         runner="cursor",
     ),
+}
+
+
+@dataclass(frozen=True)
+class CLIResumeConfig:
+    """Configuration for CLI session resumption.
+
+    Attributes:
+        flag: The resume flag or subcommand (e.g., "--resume" or "resume").
+        style: How to apply the resume - "flag" appends --resume <id>,
+               "subcommand" inserts resume <id> at a specific position.
+        insert_position: For subcommand style, where to insert (e.g., "after:exec").
+    """
+
+    flag: str
+    style: Literal["flag", "subcommand"]
+    insert_position: str = "append"
+
+
+RESUME_CONFIG: dict[str, CLIResumeConfig] = {
+    "claude": CLIResumeConfig(flag="--resume", style="flag"),
+    "gemini": CLIResumeConfig(flag="--resume", style="flag"),
+    "cursor": CLIResumeConfig(flag="--resume", style="flag"),
+    "codex": CLIResumeConfig(flag="resume", style="subcommand", insert_position="after:exec"),
 }

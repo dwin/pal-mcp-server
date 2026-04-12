@@ -2,8 +2,8 @@
 Workflow tools for PAL MCP.
 
 Workflow tools follow a multi-step pattern with forced pauses between steps
-to encourage thorough investigation and analysis. They inherit from WorkflowTool
-which combines BaseTool with BaseWorkflowMixin.
+to encourage thorough investigation and analysis. They inherit from StatefulTool
+which provides workflow orchestration on top of BaseTool.
 
 Available workflow tools:
 - debug: Systematic investigation and root cause analysis
@@ -15,8 +15,15 @@ Available workflow tools:
 - thinkdeep: Deep thinking workflow
 """
 
-from .base import WorkflowTool
 from .schema_builders import WorkflowSchemaBuilder
-from .workflow_mixin import BaseWorkflowMixin
+from .stateful_tool import StatefulTool
 
-__all__ = ["WorkflowTool", "WorkflowSchemaBuilder", "BaseWorkflowMixin"]
+# Backward compatibility alias — the old WorkflowTool(BaseTool, BaseWorkflowMixin)
+# pattern is replaced by inheriting from StatefulTool directly.
+# BaseWorkflowMixin is intentionally NOT aliased here because
+# StatefulTool already inherits from BaseTool; aliasing it as a
+# "mixin" would cause MRO errors if someone tried the old
+# `class X(BaseTool, BaseWorkflowMixin)` pattern.
+WorkflowTool = StatefulTool
+
+__all__ = ["StatefulTool", "WorkflowTool", "WorkflowSchemaBuilder"]

@@ -1,10 +1,9 @@
 """OpenAI model provider implementation."""
 
 import logging
-from typing import TYPE_CHECKING, ClassVar, Optional
+from typing import ClassVar, Optional
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+from shared_types import ToolModelCategory
 
 from .openai_compatible import OpenAICompatibleProvider
 from .registries.openai import OpenAIModelRegistry
@@ -42,7 +41,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
         canonical_name: str,
         requested_name: Optional[str] = None,
     ) -> Optional[ModelCapabilities]:
-        """Look up OpenAI capabilities from built-ins or the custom registry."""
+        """Look up OpenAI capabilities from built-ins or the OpenRouter fallback registry."""
 
         self._ensure_registry()
         builtin = super()._lookup_capabilities(canonical_name, requested_name)
@@ -52,14 +51,11 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
         try:
             from .registries.openrouter import OpenRouterModelRegistry
 
-            registry = OpenRouterModelRegistry()
-            config = registry.get_model_config(canonical_name)
-
+            config = OpenRouterModelRegistry().get_model_config(canonical_name)
             if config and config.provider == ProviderType.OPENAI:
                 return config
-
         except Exception as exc:  # pragma: no cover - registry failures are non-critical
-            logger.debug(f"Could not resolve custom OpenAI model '{canonical_name}': {exc}")
+            logger.debug("Could not resolve custom OpenAI model '%s': %s", canonical_name, exc)
 
         return None
 
@@ -90,7 +86,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
     # Provider preferences
     # ------------------------------------------------------------------
 
-    def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
+    def get_preferred_model(self, category: ToolModelCategory, allowed_models: list[str]) -> Optional[str]:
         """Get OpenAI's preferred model for a given category from allowed models.
 
         Args:
@@ -100,7 +96,6 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
         Returns:
             Preferred model name or None
         """
-        from tools.models import ToolModelCategory
 
         if not allowed_models:
             return None
@@ -115,49 +110,41 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # Prefer models with extended thinking support
-            # GPT-5.1 Codex first for coding tasks
+            # GPT-5.3 Codex first for coding tasks
             preferred = find_first(
                 [
-                    "gpt-5.1-codex",
+                    "gpt-5.3-codex",
+                    "gpt-5.4",
                     "gpt-5.2",
-                    "gpt-5-codex",
+                    "gpt-5.2-codex",
+                    "gpt-5.4-pro",
                     "gpt-5.2-pro",
-                    "o3-pro",
-                    "gpt-5",
-                    "o3",
                 ]
             )
             return preferred if preferred else allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
             # Prefer fast, cost-efficient models
-            # GPT-5.2 models for speed, GPT-5.1-Codex after (premium pricing but cached)
             preferred = find_first(
                 [
                     "gpt-5.2",
-                    "gpt-5.1-codex-mini",
-                    "gpt-5",
-                    "gpt-5-mini",
-                    "gpt-5-codex",
+                    "gpt-5.4",
+                    "gpt-5.4-mini",
                     "o4-mini",
-                    "o3-mini",
                 ]
             )
             return preferred if preferred else allowed_models[0]
 
         else:  # BALANCED or default
             # Prefer balanced performance/cost models
-            # Include GPT-5.2 family for latest capabilities
             preferred = find_first(
                 [
                     "gpt-5.2",
-                    "gpt-5.1-codex",
-                    "gpt-5",
-                    "gpt-5-codex",
+                    "gpt-5.4",
+                    "gpt-5.3-codex",
                     "gpt-5.2-pro",
-                    "gpt-5-mini",
+                    "gpt-5.4-mini",
                     "o4-mini",
-                    "o3-mini",
                 ]
             )
             return preferred if preferred else allowed_models[0]

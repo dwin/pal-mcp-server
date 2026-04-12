@@ -20,18 +20,15 @@ structural relationship analysis, architectural understanding, and code comprehe
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import TRACER_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +132,7 @@ class TracerRequest(WorkflowRequest):
         return v
 
 
-class TracerTool(WorkflowTool):
+class TracerTool(StatefulTool):
     """
     Tracer workflow tool for step-by-step code tracing and dependency analysis.
 
@@ -147,7 +144,6 @@ class TracerTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.trace_config = {}
 
     def get_name(self) -> str:
@@ -163,14 +159,7 @@ class TracerTool(WorkflowTool):
     def get_system_prompt(self) -> str:
         return TRACER_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Tracer requires analytical reasoning for code analysis"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def requires_model(self) -> bool:
         """
@@ -227,6 +216,7 @@ class TracerTool(WorkflowTool):
 
         return WorkflowSchemaBuilder.build_schema(
             tool_specific_fields=self.get_tool_fields(),
+            description_overrides=TRACER_WORKFLOW_FIELD_DESCRIPTIONS,
             required_fields=["target_description", "trace_mode"],  # Step 1 requires these
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),

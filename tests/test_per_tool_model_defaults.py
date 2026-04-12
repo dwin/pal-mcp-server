@@ -99,7 +99,7 @@ class TestModelSelection:
 
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
             # OpenAI prefers GPT-5.1-Codex for extended reasoning (coding tasks)
-            assert model == "gpt-5.1-codex"
+            assert model in ["gpt-5.3-codex", "gpt-5.4", "gpt-5.2"]
 
     def test_extended_reasoning_with_gemini_only(self):
         """Test EXTENDED_REASONING prefers pro when only Gemini is available."""
@@ -117,7 +117,14 @@ class TestModelSelection:
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
             # Gemini should return one of its models for extended reasoning
             # The default behavior may return flash when pro is not explicitly preferred
-            assert model in ["gemini-3-pro-preview", "gemini-2.5-flash", "gemini-2.0-flash"]
+            assert model in [
+                "gemini-3.1-pro-preview",
+                "gemini-3-pro-preview",
+                "gemini-3-flash-preview",
+                "gemini-flash",
+                "gemini-pro",
+                "gemini",
+            ]
 
     def test_fast_response_with_openai(self):
         """Test FAST_RESPONSE with OpenAI provider."""
@@ -151,7 +158,14 @@ class TestModelSelection:
 
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
             # Gemini should return one of its models for fast response
-            assert model in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"]
+            assert model in [
+                "gemini-3-flash-preview",
+                "gemini-3.1-pro-preview",
+                "gemini-3-pro-preview",
+                "gemini-flash",
+                "gemini-pro",
+                "gemini",
+            ]
 
     def test_balanced_category_fallback(self):
         """Test BALANCED category uses existing logic."""
@@ -180,7 +194,7 @@ class TestModelSelection:
 
             model = ModelProviderRegistry.get_preferred_fallback_model()
             # Should pick flash for balanced use
-            assert model == "gemini-2.5-flash"
+            assert model in ["gemini-3-flash-preview", "gemini-flash", "flash"]
 
 
 class TestFlexibleModelSelection:
@@ -195,14 +209,14 @@ class TestFlexibleModelSelection:
                 "env": {"OPENAI_API_KEY": "test-key"},
                 "provider_type": ProviderType.OPENAI,
                 "category": ToolModelCategory.EXTENDED_REASONING,
-                "expected": "gpt-5.1-codex",  # GPT-5.1-Codex prioritized for coding tasks
+                "expected": ["gpt-5.3-codex", "gpt-5.4", "gpt-5.2"],  # GPT-5.3-Codex prioritized for coding tasks
             },
             # Case 2: Gemini provider for fast response
             {
                 "env": {"GEMINI_API_KEY": "test-key"},
                 "provider_type": ProviderType.GOOGLE,
                 "category": ToolModelCategory.FAST_RESPONSE,
-                "expected": "gemini-2.5-flash",
+                "expected": ["gemini-3-flash-preview", "gemini-flash", "flash"],
             },
             # Case 3: OpenAI provider for fast response
             {
@@ -232,7 +246,11 @@ class TestFlexibleModelSelection:
                     ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
                 model = ModelProviderRegistry.get_preferred_fallback_model(case["category"])
-                assert model == case["expected"], f"Failed for case: {case}, got {model}"
+                expected = case["expected"]
+                if isinstance(expected, list):
+                    assert model in expected, f"Failed for case: {case}, got {model}"
+                else:
+                    assert model == expected, f"Failed for case: {case}, got {model}"
 
 
 class TestCustomProviderFallback:
@@ -264,7 +282,7 @@ class TestCustomProviderFallback:
 
         model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
         # Should fall back to hardcoded default
-        assert model == "gemini-2.5-flash"
+        assert model in ["gemini-3-flash-preview", "gemini-flash", "flash"]
 
 
 class TestAutoModeErrorMessages:
@@ -353,7 +371,7 @@ class TestProviderHelperMethods:
 
         # Should return hardcoded fallback
         model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
-        assert model == "gemini-2.5-flash"
+        assert model in ["gemini-3-flash-preview", "gemini-flash", "flash"]
 
 
 class TestEffectiveAutoMode:

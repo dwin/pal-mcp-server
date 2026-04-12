@@ -2,6 +2,7 @@
 
 import importlib
 import os
+import tempfile
 from unittest.mock import patch
 
 import pytest
@@ -112,7 +113,7 @@ class TestAutoMode:
 
         try:
             # Set to a specific model (not auto mode)
-            os.environ["DEFAULT_MODEL"] = "gemini-2.5-flash"
+            os.environ["DEFAULT_MODEL"] = "gemini-3-flash-preview"
             import config
 
             importlib.reload(config)
@@ -208,7 +209,7 @@ class TestAutoMode:
             try:
                 result = await tool.execute(
                     {
-                        "absolute_file_paths": ["/tmp/test.py"],
+                        "absolute_file_paths": [os.path.join(tempfile.gettempdir(), "test.py")],
                         "prompt": "Analyze this",
                         "model": "nonexistent-model-xyz",  # This model definitely doesn't exist
                     }
@@ -310,13 +311,13 @@ class TestAutoMode:
             assert "listmodels" in schema["description"]
 
             # Test normal mode
-            os.environ["DEFAULT_MODEL"] = "pro"
+            os.environ["DEFAULT_MODEL"] = "gemini-3-flash-preview"
             importlib.reload(config)
 
             schema = tool.get_model_field_schema()
             assert "enum" not in schema
             assert schema["type"] == "string"
-            assert "'pro'" in schema["description"]
+            assert "'gemini-3-flash-preview'" in schema["description"]
             assert "listmodels" in schema["description"]
 
         finally:

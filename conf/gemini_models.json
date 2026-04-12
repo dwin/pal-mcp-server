@@ -26,15 +26,39 @@
   },
   "models": [
     {
+      "model_name": "gemini-3.1-pro-preview",
+      "friendly_name": "Gemini 3.1 Pro Preview",
+      "aliases": [
+        "gemini-3.1-pro",
+        "gemini3.1",
+        "gemini-pro",
+        "gemini"
+      ],
+      "intelligence_score": 19,
+      "description": "Gemini 3.1 Pro (1M context, 65K output) - Latest reasoning-first model with enhanced agentic and coding capabilities",
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "max_thinking_tokens": 32768,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "default_reasoning_effort": "medium",
+      "max_image_size_mb": 32.0
+    },
+    {
       "model_name": "gemini-3-pro-preview",
       "friendly_name": "Gemini Pro 3.0 Preview",
       "aliases": [
         "gemini-3-pro",
-        "gemini3",
-        "gemini-pro"
+        "gemini3"
       ],
       "intelligence_score": 18,
-      "description": "Deep reasoning + thinking mode (1M context) - Complex problems, architecture, deep analysis",
+      "description": "Gemini 3.0 Pro (1M context) - Prefer gemini-3.1-pro-preview for improved reasoning and agentic capabilities.",
       "context_window": 1048576,
       "max_output_tokens": 65536,
       "max_thinking_tokens": 32768,
@@ -57,7 +81,7 @@
         "flash3"
       ],
       "intelligence_score": 15,
-      "description": "High-speed thinking model (1M context) - Near Pro-level reasoning with lower latency for agentic workflows and coding",
+      "description": "Gemini 3.0 Flash (1M context) - High-speed thinking model. No 3.1 Flash yet; still the recommended flash-tier model.",
       "context_window": 1048576,
       "max_output_tokens": 65536,
       "max_thinking_tokens": 24576,

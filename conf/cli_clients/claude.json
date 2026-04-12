@@ -3,10 +3,13 @@
   "command": "claude",
   "additional_args": [
     "--permission-mode",
-    "acceptEdits",
-    "--model",
-    "opus"
+    "acceptEdits"
   ],
+  "model_config": {
+    "flag": "--model",
+    "default": "opus",
+    "models": ["opus", "sonnet", "haiku"]
+  },
   "env": {},
   "roles": {
     "default": {
@@ -19,6 +22,22 @@
     },
     "codereviewer": {
       "prompt_path": "systemprompts/clink/default_codereviewer.txt",
+      "role_args": []
+    },
+    "analyze": {
+      "prompt_path": "systemprompts/clink/default_analyze.txt",
+      "role_args": []
+    },
+    "secaudit": {
+      "prompt_path": "systemprompts/clink/default_secaudit.txt",
+      "role_args": []
+    },
+    "tracer": {
+      "prompt_path": "systemprompts/clink/default_tracer.txt",
+      "role_args": []
+    },
+    "docgen": {
+      "prompt_path": "systemprompts/clink/default_docgen.txt",
       "role_args": []
     }
   }

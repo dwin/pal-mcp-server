@@ -13,7 +13,7 @@
               "role": "user"
             }
           ],
-          "model": "gpt-5",
+          "model": "gpt-5.4",
           "stream": false,
           "temperature": 1.0
         },
@@ -91,7 +91,7 @@
               "role": "user"
             }
           ],
-          "model": "gpt-5",
+          "model": "gpt-5.4",
           "stream": false,
           "temperature": 1.0
         },

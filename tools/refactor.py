@@ -17,18 +17,15 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import REFACTOR_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -128,17 +125,16 @@ class RefactorRequest(WorkflowRequest):
     temperature: Optional[float] = Field(default=None, exclude=True)
     thinking_mode: Optional[str] = Field(default=None, exclude=True)
 
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required relevant_files field."""
-        if self.step_number == 1 and not self.relevant_files:
-            raise ValueError(
-                "Step 1 requires 'relevant_files' field to specify code files or directories to analyze for refactoring"
-            )
-        return self
+    # Declarative step-1 validation: require relevant_files on step 1
+    _step_one_required_fields = [
+        (
+            "relevant_files",
+            "Step 1 requires 'relevant_files' field to specify code files or directories to analyze for refactoring",
+        ),
+    ]
 
 
-class RefactorTool(WorkflowTool):
+class RefactorTool(StatefulTool):
     """
     Refactor tool for step-by-step refactoring analysis and expert validation.
 
@@ -151,7 +147,6 @@ class RefactorTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.refactor_config = {}
 
     def get_name(self) -> str:
@@ -167,14 +162,7 @@ class RefactorTool(WorkflowTool):
     def get_system_prompt(self) -> str:
         return REFACTOR_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Refactor workflow requires thorough analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the refactor workflow-specific request model."""
@@ -184,58 +172,15 @@ class RefactorTool(WorkflowTool):
         """Generate input schema using WorkflowSchemaBuilder with refactor-specific overrides."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Refactor workflow-specific field overrides
-        refactor_field_overrides = {
-            "step": {
-                "type": "string",
-                "description": REFACTOR_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": REFACTOR_FIELD_DESCRIPTIONS["step_number"],
-            },
-            "total_steps": {
-                "type": "integer",
-                "minimum": 1,
-                "description": REFACTOR_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": REFACTOR_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": REFACTOR_FIELD_DESCRIPTIONS["findings"],
-            },
-            "files_checked": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": REFACTOR_FIELD_DESCRIPTIONS["files_checked"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": REFACTOR_FIELD_DESCRIPTIONS["relevant_files"],
-            },
+        # Refactor-specific fields and fields with custom types
+        refactor_fields = {
+            # confidence uses a custom enum for refactoring workflow
             "confidence": {
                 "type": "string",
                 "enum": ["exploring", "incomplete", "partial", "complete"],
                 "default": "incomplete",
                 "description": REFACTOR_FIELD_DESCRIPTIONS["confidence"],
             },
-            "issues_found": {
-                "type": "array",
-                "items": {"type": "object"},
-                "description": REFACTOR_FIELD_DESCRIPTIONS["issues_found"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": REFACTOR_FIELD_DESCRIPTIONS["images"],
-            },
-            # Refactor-specific fields (for step 1)
-            # Note: Use relevant_files field instead of files for consistency
             "refactor_type": {
                 "type": "string",
                 "enum": ["codesmells", "decompose", "modernize", "organization"],
@@ -254,9 +199,9 @@ class RefactorTool(WorkflowTool):
             },
         }
 
-        # Use WorkflowSchemaBuilder with refactor-specific tool fields
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=refactor_field_overrides,
+            tool_specific_fields=refactor_fields,
+            description_overrides=REFACTOR_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),

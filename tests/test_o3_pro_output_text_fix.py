@@ -1,10 +1,10 @@
 """
-Tests for o3-pro output_text parsing fix using HTTP transport recording.
+Tests for gpt-5.4-pro output_text parsing fix using HTTP transport recording.
 
 This test validates the fix that uses `response.output_text` convenience field
 instead of manually parsing `response.output.content[].text`.
 
-Uses HTTP transport recorder to record real o3-pro API responses at the HTTP level while allowing
+Uses HTTP transport recorder to record real gpt-5.4-pro API responses at the HTTP level while allowing
 the OpenAI SDK to create real response objects that we can test.
 
 RECORDING: To record new responses, delete the cassette file and run with real API keys.
@@ -35,7 +35,7 @@ cassette_dir.mkdir(exist_ok=True)
 
 @pytest.mark.asyncio
 class TestO3ProOutputTextFix:
-    """Test o3-pro response parsing fix using respx for HTTP recording/replay."""
+    """Test gpt-5.4-pro response parsing fix using respx for HTTP recording/replay."""
 
     def setup_method(self):
         """Set up the test by ensuring clean registry state."""
@@ -56,9 +56,9 @@ class TestO3ProOutputTextFix:
         ModelProviderRegistry.reset_for_testing()
 
     @pytest.mark.no_mock_provider  # Disable provider mocking for this test
-    @patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "o3-pro", "LOCALE": ""})
+    @patch.dict(os.environ, {"OPENAI_ALLOWED_MODELS": "gpt-5.4-pro", "LOCALE": ""})
     async def test_o3_pro_uses_output_text_field(self, monkeypatch):
-        """Test that o3-pro parsing uses the output_text convenience field via ChatTool."""
+        """Test that gpt-5.4-pro parsing uses the output_text convenience field via ChatTool."""
         cassette_path = cassette_dir / "o3_pro_basic_math.json"
 
         # Check if we need to record or replay
@@ -91,12 +91,12 @@ class TestO3ProOutputTextFix:
         assert cassette_path.exists()
 
     async def _execute_chat_tool_test(self):
-        """Execute the ChatTool with o3-pro and return the result."""
+        """Execute the ChatTool with gpt-5.4-pro and return the result."""
         chat_tool = ChatTool()
         with tempfile.TemporaryDirectory() as workdir:
             arguments = {
                 "prompt": "What is 2 + 2?",
-                "model": "o3-pro",
+                "model": "gpt-5.4-pro",
                 "temperature": 1.0,
                 "working_directory_absolute_path": workdir,
             }
@@ -125,7 +125,7 @@ class TestO3ProOutputTextFix:
         assert response_data["status"] in ["success", "continuation_available"]
         assert "4" in response_data["content"]
 
-        # Verify o3-pro was actually used
+        # Verify gpt-5.4-pro was actually used
         metadata = response_data["metadata"]
-        assert metadata["model_used"] == "o3-pro"
+        assert metadata["model_used"] == "gpt-5.4-pro"
         assert metadata["provider_used"] == "openai"

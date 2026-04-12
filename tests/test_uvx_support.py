@@ -160,20 +160,14 @@ class TestUvxProjectConfiguration:
 
         pyproject_deps = set(pyproject_data["project"]["dependencies"])
 
-        # Read requirements.txt
-        requirements_path = Path(__file__).parent.parent / "requirements.txt"
-        if requirements_path.exists():
-            # Note: We primarily validate pyproject.toml has core dependencies
+        # Core dependencies should be present in both
+        core_packages = {"mcp", "openai", "google-genai", "pydantic", "python-dotenv"}
+
+        for pkg in core_packages:
+            pyproject_has = any(pkg in dep for dep in pyproject_deps)
+
+            assert pyproject_has, f"{pkg} should be in pyproject.toml dependencies"
             # requirements.txt might have additional dev dependencies
-
-            # Core dependencies should be present in both
-            core_packages = {"mcp", "openai", "google-genai", "pydantic", "python-dotenv"}
-
-            for pkg in core_packages:
-                pyproject_has = any(pkg in dep for dep in pyproject_deps)
-
-                assert pyproject_has, f"{pkg} should be in pyproject.toml dependencies"
-                # requirements.txt might have additional dev dependencies
 
     def test_uvx_entry_point_callable(self):
         """Test that the uvx entry point (server:run) is callable."""

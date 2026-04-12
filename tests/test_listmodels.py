@@ -65,8 +65,8 @@ class TestListModelsTool:
 
             # Check Gemini shows as configured
             assert "Google Gemini ✅" in content
-            assert "`flash` → `gemini-2.5-flash`" in content
-            assert "`pro` → `gemini-3-pro-preview`" in content
+            assert "`flash` → `gemini-3-flash-preview`" in content
+            assert "`gemini-pro` → `gemini-3.1-pro-preview`" in content
             assert "1M context" in content
             assert "Supports structured code generation" in content
 
@@ -95,7 +95,7 @@ class TestListModelsTool:
             assert "X.AI (Grok) ✅" in content
 
             # Check models are listed
-            assert "`o3`" in content
+            assert "`o4-mini`" in content
             assert "`grok`" in content
 
             # Check summary

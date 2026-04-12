@@ -16,13 +16,12 @@ from pydantic import Field
 
 if TYPE_CHECKING:
     from providers.shared import ModelCapabilities
-    from tools.models import ToolModelCategory
 
-from config import TEMPERATURE_BALANCED
+from shared_types import ToolModelCategory
 from systemprompts import CHAT_PROMPT, GENERATE_CODE_PROMPT
 from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, ToolRequest
 
-from .simple.base import SimpleTool
+from .shared.base_tool import BaseTool
 
 # Field descriptions matching the original Chat tool exactly
 CHAT_FIELD_DESCRIPTIONS = {
@@ -54,7 +53,7 @@ class ChatRequest(ToolRequest):
     )
 
 
-class ChatTool(SimpleTool):
+class ChatTool(BaseTool):
     """
     General development chat and collaborative thinking tool using SimpleTool architecture.
 
@@ -92,14 +91,7 @@ class ChatTool(SimpleTool):
             prompts.append(GENERATE_CODE_PROMPT)
         return prompts
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_BALANCED
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Chat prioritizes fast responses and cost efficiency"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.FAST_RESPONSE
+    MODEL_CATEGORY = ToolModelCategory.FAST_RESPONSE
 
     def get_request_model(self):
         """Return the Chat-specific request model"""

@@ -17,18 +17,15 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import ANALYZE_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -121,16 +118,13 @@ class AnalyzeWorkflowRequest(WorkflowRequest):
 
     # Keep thinking_mode from original analyze tool; temperature is inherited from WorkflowRequest
 
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required relevant_files."""
-        if self.step_number == 1:
-            if not self.relevant_files:
-                raise ValueError("Step 1 requires 'relevant_files' field to specify files or directories to analyze")
-        return self
+    # Declarative step-1 validation: require relevant_files on step 1
+    _step_one_required_fields = [
+        ("relevant_files", "Step 1 requires 'relevant_files' field to specify files or directories to analyze"),
+    ]
 
 
-class AnalyzeTool(WorkflowTool):
+class AnalyzeTool(StatefulTool):
     """
     Analyze workflow tool for step-by-step code analysis and expert validation.
 
@@ -142,7 +136,6 @@ class AnalyzeTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.analysis_config = {}
 
     def get_name(self) -> str:
@@ -158,14 +151,7 @@ class AnalyzeTool(WorkflowTool):
     def get_system_prompt(self) -> str:
         return ANALYZE_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Analyze workflow requires thorough analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the analyze workflow-specific request model."""
@@ -175,57 +161,13 @@ class AnalyzeTool(WorkflowTool):
         """Generate input schema using WorkflowSchemaBuilder with analyze-specific overrides."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Fields to exclude from analyze workflow (inherited from WorkflowRequest but not used)
-        excluded_fields = {"hypothesis", "confidence"}
-
-        # Analyze workflow-specific field overrides
-        analyze_field_overrides = {
-            "step": {
-                "type": "string",
-                "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["step_number"],
-            },
-            "total_steps": {
-                "type": "integer",
-                "minimum": 1,
-                "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["findings"],
-            },
-            "files_checked": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"],
-            },
+        # Analyze-specific fields
+        analyze_fields = {
+            # Re-add confidence (excluded from workflow defaults, but analyze uses it)
             "confidence": {
                 "type": "string",
                 "enum": ["exploring", "low", "medium", "high", "very_high", "almost_certain", "certain"],
                 "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["confidence"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["images"],
-            },
-            "issues_found": {
-                "type": "array",
-                "items": {"type": "object"},
-                "description": "Issues or concerns identified during analysis, each with severity level (critical, high, medium, low)",
             },
             "analysis_type": {
                 "type": "string",
@@ -241,13 +183,13 @@ class AnalyzeTool(WorkflowTool):
             },
         }
 
-        # Use WorkflowSchemaBuilder with analyze-specific tool fields
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=analyze_field_overrides,
+            tool_specific_fields=analyze_fields,
+            description_overrides=ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),
-            excluded_workflow_fields=list(excluded_fields),
+            excluded_workflow_fields=["hypothesis", "confidence"],
         )
 
     def get_required_actions(

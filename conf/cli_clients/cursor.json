@@ -1,22 +1,46 @@
 {
   "name": "cursor",
-  "command": "cursor-agent",
-  "additional_args": [
-    "--force"
-  ],
+  "command": "agent",
+  "additional_args": [],
+  "model_config": {
+    "flag": "--model",
+    "default": null,
+    "models": null,
+    "dynamic_discovery": {
+      "command": "agent --list-models",
+      "parser": "cursor_models",
+      "cache_ttl_seconds": 3600
+    }
+  },
   "env": {},
   "roles": {
     "default": {
       "prompt_path": "systemprompts/clink/default.txt",
-      "role_args": []
+      "role_args": ["--force"]
     },
     "planner": {
       "prompt_path": "systemprompts/clink/default_planner.txt",
-      "role_args": []
+      "role_args": ["--mode", "plan"]
     },
     "codereviewer": {
       "prompt_path": "systemprompts/clink/default_codereviewer.txt",
       "role_args": []
+    },
+    "analyze": {
+      "prompt_path": "systemprompts/clink/default_analyze.txt",
+      "role_args": []
+    },
+    "secaudit": {
+      "prompt_path": "systemprompts/clink/default_secaudit.txt",
+      "role_args": []
+    },
+    "tracer": {
+      "prompt_path": "systemprompts/clink/default_tracer.txt",
+      "role_args": []
+    },
+    "docgen": {
+      "prompt_path": "systemprompts/clink/default_docgen.txt",
+      "role_args": ["--force"]
     }
   }
 }

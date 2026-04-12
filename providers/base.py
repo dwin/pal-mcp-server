@@ -3,10 +3,9 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import Any, Callable, Optional
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+from shared_types import ToolModelCategory
 
 from .shared import ModelCapabilities, ModelResponse, ProviderType
 
@@ -340,7 +339,7 @@ class ModelProvider(ABC):
     # ------------------------------------------------------------------
     # Preference / registry hooks
     # ------------------------------------------------------------------
-    def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
+    def get_preferred_model(self, category: ToolModelCategory, allowed_models: list[str]) -> Optional[str]:
         """Get the preferred model from this provider for a given category."""
 
         return None

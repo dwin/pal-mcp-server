@@ -8,18 +8,15 @@ avoid reflexive agreement by prompting deeper analysis and genuine evaluation.
 This is a simple, self-contained tool that doesn't require AI model access.
 """
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from tools.shared.base_models import ToolRequest
 from tools.shared.exceptions import ToolExecutionError
 
-from .simple.base import SimpleTool
+from .shared.base_tool import BaseTool
 
 # Field descriptions for the Challenge tool
 CHALLENGE_FIELD_DESCRIPTIONS = {
@@ -36,7 +33,7 @@ class ChallengeRequest(ToolRequest):
     prompt: str = Field(..., description=CHALLENGE_FIELD_DESCRIPTIONS["prompt"])
 
 
-class ChallengeTool(SimpleTool):
+class ChallengeTool(BaseTool):
     """
     Challenge tool for encouraging critical thinking and avoiding automatic agreement.
 
@@ -62,14 +59,7 @@ class ChallengeTool(SimpleTool):
         # Challenge tool doesn't need a system prompt since it doesn't call AI
         return ""
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Challenge doesn't need a model category since it doesn't use AI"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.FAST_RESPONSE  # Default, but not used
+    MODEL_CATEGORY = ToolModelCategory.FAST_RESPONSE
 
     def requires_model(self) -> bool:
         """

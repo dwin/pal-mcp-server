@@ -16,18 +16,15 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import PRECOMMIT_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -108,15 +105,13 @@ class PrecommitRequest(WorkflowRequest):
     temperature: Optional[float] = Field(default=None, exclude=True)
     thinking_mode: Optional[str] = Field(default=None, exclude=True)
 
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required path field."""
-        if self.step_number == 1 and not self.path:
-            raise ValueError("Step 1 requires 'path' field to specify git repository location")
-        return self
+    # Declarative step-1 validation: require path on step 1
+    _step_one_required_fields = [
+        ("path", "Step 1 requires 'path' field to specify git repository location"),
+    ]
 
 
-class PrecommitTool(WorkflowTool):
+class PrecommitTool(StatefulTool):
     """
     Precommit workflow tool for step-by-step pre-commit validation and expert analysis.
 
@@ -128,7 +123,6 @@ class PrecommitTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.git_config = {}
 
     def get_name(self) -> str:
@@ -144,14 +138,7 @@ class PrecommitTool(WorkflowTool):
     def get_system_prompt(self) -> str:
         return PRECOMMIT_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Precommit requires thorough analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the precommit workflow-specific request model."""
@@ -161,39 +148,13 @@ class PrecommitTool(WorkflowTool):
         """Generate input schema using WorkflowSchemaBuilder with precommit-specific overrides."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Precommit workflow-specific field overrides
-        precommit_field_overrides = {
-            "step": {
-                "type": "string",
-                "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["step_number"],
-            },
+        # Precommit-specific fields and fields with custom constraints
+        precommit_fields = {
+            # total_steps has a higher minimum for precommit workflow
             "total_steps": {
                 "type": "integer",
                 "minimum": 3,
                 "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["findings"],
-            },
-            "files_checked": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"],
             },
             "precommit_type": {
                 "type": "string",
@@ -201,17 +162,6 @@ class PrecommitTool(WorkflowTool):
                 "default": "external",
                 "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["precommit_type"],
             },
-            "issues_found": {
-                "type": "array",
-                "items": {"type": "object"},
-                "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["images"],
-            },
-            # Precommit-specific fields (for step 1)
             "path": {
                 "type": "string",
                 "description": PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["path"],
@@ -242,9 +192,9 @@ class PrecommitTool(WorkflowTool):
             },
         }
 
-        # Use WorkflowSchemaBuilder with precommit-specific tool fields
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=precommit_field_overrides,
+            tool_specific_fields=precommit_fields,
+            description_overrides=PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),

@@ -13,7 +13,8 @@ from mcp.types import TextContent
 
 from providers.registries.custom import CustomEndpointModelRegistry
 from providers.registries.openrouter import OpenRouterModelRegistry
-from tools.models import ToolModelCategory, ToolOutput
+from shared_types import ToolModelCategory
+from tools.models import ToolOutput
 from tools.shared.base_models import ToolRequest
 from tools.shared.base_tool import BaseTool
 from utils.env import get_env
@@ -398,6 +399,4 @@ class ListModelsTool(BaseTool):
 
         return [TextContent(type="text", text=tool_output.model_dump_json())]
 
-    def get_model_category(self) -> ToolModelCategory:
-        """Return the model category for this tool."""
-        return ToolModelCategory.FAST_RESPONSE  # Simple listing, no AI needed
+    MODEL_CATEGORY = ToolModelCategory.FAST_RESPONSE

@@ -16,18 +16,15 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import DEBUG_ISSUE_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +97,7 @@ class DebugInvestigationRequest(WorkflowRequest):
     thinking_mode: Optional[str] = Field(default=None, exclude=True)
 
 
-class DebugIssueTool(WorkflowTool):
+class DebugIssueTool(StatefulTool):
     """
     Debug tool for systematic root cause analysis and issue investigation.
 
@@ -127,76 +124,18 @@ class DebugIssueTool(WorkflowTool):
     def get_system_prompt(self) -> str:
         return DEBUG_ISSUE_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Debug requires deep analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the debug-specific request model."""
         return DebugInvestigationRequest
 
     def get_input_schema(self) -> dict[str, Any]:
-        """Generate input schema using WorkflowSchemaBuilder with debug-specific overrides."""
+        """Generate input schema using WorkflowSchemaBuilder with debug-specific descriptions."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Debug-specific field overrides
-        debug_field_overrides = {
-            "step": {
-                "type": "string",
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["step_number"],
-            },
-            "total_steps": {
-                "type": "integer",
-                "minimum": 1,
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["findings"],
-            },
-            "files_checked": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["files_checked"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["relevant_files"],
-            },
-            "confidence": {
-                "type": "string",
-                "enum": ["exploring", "low", "medium", "high", "very_high", "almost_certain", "certain"],
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["confidence"],
-            },
-            "hypothesis": {
-                "type": "string",
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["hypothesis"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["images"],
-            },
-        }
-
-        # Use WorkflowSchemaBuilder with debug-specific tool fields
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=debug_field_overrides,
+            description_overrides=DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),

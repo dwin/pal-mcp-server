@@ -14,7 +14,7 @@ async def test_clink_tool_execute(monkeypatch):
 
     async def fake_run(**kwargs):
         return AgentOutput(
-            parsed=ParsedCLIResponse(content="Hello from Gemini", metadata={"model_used": "gemini-2.5-pro"}),
+            parsed=ParsedCLIResponse(content="Hello from Gemini", metadata={"model_used": "gemini-3.1-pro-preview"}),
             sanitized_command=["gemini", "-o", "json"],
             returncode=0,
             stdout='{"response": "Hello from Gemini"}',

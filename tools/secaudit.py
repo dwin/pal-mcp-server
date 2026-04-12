@@ -18,18 +18,15 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import Field, model_validator
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import SECAUDIT_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +113,7 @@ class SecauditRequest(WorkflowRequest):
         return self
 
 
-class SecauditTool(WorkflowTool):
+class SecauditTool(StatefulTool):
     """
     Comprehensive security audit workflow tool.
 
@@ -128,7 +125,6 @@ class SecauditTool(WorkflowTool):
 
     def __init__(self):
         super().__init__()
-        self.initial_request = None
         self.security_config = {}
 
     def get_name(self) -> str:
@@ -147,15 +143,7 @@ class SecauditTool(WorkflowTool):
         """Return the system prompt for expert security analysis."""
         return SECAUDIT_PROMPT
 
-    def get_default_temperature(self) -> float:
-        """Return the temperature for security audit analysis"""
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Return the model category for security audit"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self) -> type:
         """Return the workflow request model class"""
@@ -353,56 +341,8 @@ class SecauditTool(WorkflowTool):
         """Generate input schema using WorkflowSchemaBuilder with security audit-specific overrides."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Security audit workflow-specific field overrides
-        secaudit_field_overrides = {
-            "step": {
-                "type": "string",
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["step_number"],
-            },
-            "total_steps": {
-                "type": "integer",
-                "minimum": 1,
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["findings"],
-            },
-            "files_checked": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"],
-            },
-            "confidence": {
-                "type": "string",
-                "enum": ["exploring", "low", "medium", "high", "very_high", "almost_certain", "certain"],
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["confidence"],
-            },
-            "issues_found": {
-                "type": "array",
-                "items": {"type": "object"},
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["issues_found"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["images"],
-            },
-            # Security audit-specific fields (for step 1)
+        # Security audit-specific fields
+        secaudit_fields = {
             "security_scope": {
                 "type": "string",
                 "description": SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS["security_scope"],
@@ -432,9 +372,9 @@ class SecauditTool(WorkflowTool):
             },
         }
 
-        # Use WorkflowSchemaBuilder with security audit-specific tool fields
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=secaudit_field_overrides,
+            tool_specific_fields=secaudit_fields,
+            description_overrides=SECAUDIT_WORKFLOW_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),

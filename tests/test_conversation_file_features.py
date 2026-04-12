@@ -163,9 +163,12 @@ class TestConversationHistoryBuilding:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_build_conversation_history_with_file_content(self, project_path):
         """Test that conversation history includes embedded file content"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         # Create test file with known content
         test_file = os.path.join(project_path, "test.py")
@@ -212,9 +215,12 @@ class TestConversationHistoryBuilding:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_build_conversation_history_file_deduplication(self, project_path):
         """Test that files are embedded only once even if referenced multiple times"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         test_file = os.path.join(project_path, "shared.py")
         with open(test_file, "w") as f:
@@ -280,9 +286,12 @@ class TestCrossToolFileContext:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_cross_tool_file_context_preservation(self, project_path):
         """Test that file context is preserved across different tools"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         src_file = os.path.join(project_path, "src.py")
         test_file = os.path.join(project_path, "test.py")
@@ -300,7 +309,7 @@ class TestCrossToolFileContext:
                 timestamp="2023-01-01T00:00:00Z",  # First turn
                 files=[src_file],
                 tool_name="analyze",
-                model_name="gemini-2.5-flash",
+                model_name="gemini-3-flash-preview",
                 model_provider="google",
             ),
             ConversationTurn(
@@ -332,7 +341,7 @@ class TestCrossToolFileContext:
         history, tokens = build_conversation_history(context)
 
         # Verify cross-tool context
-        assert "--- Turn 1 (gemini-2.5-flash using analyze via google) ---" in history
+        assert "--- Turn 1 (gemini-3-flash-preview using analyze via google) ---" in history
         assert "--- Turn 2 (Agent) ---" in history
         assert "--- Turn 3 (gpt-5 using testgen via openai) ---" in history
 
@@ -355,9 +364,12 @@ class TestLargeConversations:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_large_conversation_with_many_files(self, project_path):
         """Test conversation with many files across multiple turns"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         # Create 20 test files
         test_files = []
@@ -437,9 +449,12 @@ class TestSmallAndNewConversations:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_single_turn_conversation(self, project_path):
         """Test conversation with just one turn"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         test_file = os.path.join(project_path, "single.py")
         with open(test_file, "w") as f:
@@ -506,9 +521,12 @@ class TestFailureScenarios:
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "OPENAI_API_KEY": ""}, clear=False)
     def test_conversation_with_unreadable_files(self, project_path):
         """Test conversation history building with unreadable files"""
+        from providers.gemini import GeminiModelProvider
         from providers.registry import ModelProviderRegistry
+        from providers.shared import ProviderType
 
         ModelProviderRegistry.clear_cache()
+        ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         # Create a file that will be treated as missing
         missing_file = os.path.join(project_path, "nonexistent.py")

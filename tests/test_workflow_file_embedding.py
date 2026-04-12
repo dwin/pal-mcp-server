@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from tools.workflow.workflow_mixin import BaseWorkflowMixin
+from tools.workflow.stateful_tool import StatefulTool as BaseWorkflowMixin
 
 
 class TestWorkflowFileEmbedding:

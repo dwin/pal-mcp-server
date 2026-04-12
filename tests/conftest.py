@@ -30,7 +30,7 @@ env_config.reload_env({"PAL_MCP_FORCE_ENV_OVERRIDE": "false"})
 
 # Set default model to a specific value for tests to avoid auto mode
 # This prevents all tests from failing due to missing model parameter
-os.environ["DEFAULT_MODEL"] = "gemini-2.5-flash"
+os.environ["DEFAULT_MODEL"] = "gemini-3-flash-preview"
 
 # Force reload of config module to pick up the env var
 import config  # noqa: E402
@@ -80,6 +80,59 @@ def project_path(tmp_path):
     test_dir.mkdir(parents=True, exist_ok=True)
 
     return test_dir
+
+
+def _create_mock_provider(model_name="gemini-3-flash-preview", context_window=1_048_576):
+    """Create a properly configured mock provider for unit tests.
+
+    Consolidated from tests/mock_helpers.py into conftest.py.
+    """
+    from unittest.mock import Mock
+
+    from providers.shared import STANDARD_RANGE, ModelCapabilities
+
+    mock_provider = Mock()
+
+    mock_capabilities = ModelCapabilities(
+        provider=ProviderType.GOOGLE,
+        model_name=model_name,
+        friendly_name="Gemini",
+        context_window=context_window,
+        max_output_tokens=8192,
+        supports_extended_thinking=False,
+        supports_system_prompts=True,
+        supports_streaming=True,
+        supports_function_calling=True,
+        temperature_constraint=STANDARD_RANGE,
+    )
+
+    mock_provider.get_capabilities.return_value = mock_capabilities
+    mock_provider.get_provider_type.return_value = ProviderType.GOOGLE
+    mock_provider.validate_model_name.return_value = True
+
+    mock_response = Mock()
+    mock_response.content = "Test response"
+    mock_response.usage = {"input_tokens": 10, "output_tokens": 20}
+    mock_response.model_name = model_name
+    mock_response.friendly_name = "Gemini"
+    mock_response.provider = ProviderType.GOOGLE
+    mock_response.metadata = {"finish_reason": "STOP"}
+
+    mock_provider.generate_content.return_value = mock_response
+
+    return mock_provider
+
+
+@pytest.fixture
+def create_mock_provider():
+    """Factory fixture that creates a configurable mock provider."""
+    return _create_mock_provider
+
+
+@pytest.fixture
+def mock_provider():
+    """Convenience fixture that creates a mock provider with default settings."""
+    return _create_mock_provider()
 
 
 def _set_dummy_keys_if_missing():
@@ -197,7 +250,7 @@ def disable_force_env_override(monkeypatch):
 
     monkeypatch.setenv("PAL_MCP_FORCE_ENV_OVERRIDE", "false")
     env_config.reload_env({"PAL_MCP_FORCE_ENV_OVERRIDE": "false"})
-    monkeypatch.setenv("DEFAULT_MODEL", "gemini-2.5-flash")
+    monkeypatch.setenv("DEFAULT_MODEL", "gemini-3-flash-preview")
     monkeypatch.setenv("MAX_CONVERSATION_TURNS", "50")
 
     import importlib

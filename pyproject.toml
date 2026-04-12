@@ -2,7 +2,7 @@
 name = "pal-mcp-server"
 version = "9.8.2"
 description = "AI-powered MCP server with multiple model providers"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "mcp>=1.0.0",
     "google-genai>=1.19.0",
@@ -11,11 +11,24 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.11.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "isort>=5.12.0",
+    "python-semantic-release>=10.3.0",
+    "build>=1.0.0",
+    "toml",
+]
+
 [tool.setuptools.packages.find]
 include = ["tools*", "providers*", "systemprompts*", "utils*", "conf*", "clink*"]
 
 [tool.setuptools]
-py-modules = ["server", "config"]
+py-modules = ["server", "config", "shared_types"]
 
 [tool.setuptools.package-data]
 "*" = [

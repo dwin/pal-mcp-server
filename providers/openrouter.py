@@ -7,9 +7,9 @@ from utils.env import get_env
 from .openai_compatible import OpenAICompatibleProvider
 from .registries.openrouter import OpenRouterModelRegistry
 from .shared import (
+    STANDARD_RANGE,
     ModelCapabilities,
     ProviderType,
-    RangeTemperatureConstraint,
 )
 
 
@@ -93,7 +93,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
                 supports_system_prompts=True,
                 supports_streaming=True,
                 supports_function_calling=False,
-                temperature_constraint=RangeTemperatureConstraint(0.0, 2.0, 1.0),
+                temperature_constraint=STANDARD_RANGE,
             )
             generic._is_generic = True
             return generic

@@ -1,45 +1,39 @@
 # ===========================================
 # STAGE 1: Build dependencies
 # ===========================================
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim-bookworm AS builder
 
-# Install system dependencies for building
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Copy uv from the official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements files
-COPY requirements.txt ./
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
 
-# Create virtual environment and install dependencies
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Copy uv files
+COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+# Install dependencies into /opt/venv
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+# Use frozen lockfile, no dev dependencies
+RUN uv sync --frozen --no-dev --no-install-project
 
 # ===========================================
 # STAGE 2: Runtime image
 # ===========================================
-FROM python:3.11-slim AS runtime
+FROM python:3.12-slim-bookworm AS runtime
 
-# Add metadata labels for traceability
+# Metadata
 LABEL maintainer="PAL MCP Server Team"
 LABEL version="1.0.0"
 LABEL description="PAL MCP Server - AI-powered Model Context Protocol server"
 LABEL org.opencontainers.image.title="pal-mcp-server"
-LABEL org.opencontainers.image.description="AI-powered Model Context Protocol server with multi-provider support"
-LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.source="https://github.com/BeehiveInnovations/pal-mcp-server"
-LABEL org.opencontainers.image.documentation="https://github.com/BeehiveInnovations/pal-mcp-server/blob/main/README.md"
 LABEL org.opencontainers.image.licenses="Apache 2.0 License"
 
-# Create non-root user for security
+# Create non-root user
 RUN groupadd -r paluser && useradd -r -g paluser paluser
 
 # Install minimal runtime dependencies
@@ -53,32 +47,24 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Set working directory
 WORKDIR /app
 
 # Copy application code
 COPY --chown=paluser:paluser . .
 
-# Create logs directory with proper permissions
-RUN mkdir -p logs && chown -R paluser:paluser logs
+# Create directories
+RUN mkdir -p logs tmp && chown -R paluser:paluser logs tmp
 
-# Create tmp directory for container operations
-RUN mkdir -p tmp && chown -R paluser:paluser tmp
-
-# Copy health check script
+# Healthcheck
 COPY --chown=paluser:paluser docker/scripts/healthcheck.py /usr/local/bin/healthcheck.py
 RUN chmod +x /usr/local/bin/healthcheck.py
 
-# Switch to non-root user
 USER paluser
 
-# Health check configuration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python /usr/local/bin/healthcheck.py
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# Default command
 CMD ["python", "server.py"]

@@ -1,15 +1,13 @@
 """Model provider registry for managing available providers."""
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
+from shared_types import ToolModelCategory
 from utils.env import get_env
 
 from .base import ModelProvider
 from .shared import ProviderType
-
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
 
 
 class ModelProviderRegistry:
@@ -68,6 +66,11 @@ class ModelProviderRegistry:
         instance._providers[provider_type] = provider_class
         # Invalidate any cached instance so subsequent lookups use the new registration
         instance._initialized_providers.pop(provider_type, None)
+
+    @classmethod
+    def get_existing_instance(cls) -> Optional["ModelProviderRegistry"]:
+        """Return the initialized registry instance, or None if startup never created one."""
+        return cls._instance
 
     @classmethod
     def get_provider(cls, provider_type: ProviderType, force_new: bool = False) -> Optional[ModelProvider]:
@@ -381,7 +384,7 @@ class ModelProviderRegistry:
         return allowed_models
 
     @classmethod
-    def get_preferred_fallback_model(cls, tool_category: Optional["ToolModelCategory"] = None) -> str:
+    def get_preferred_fallback_model(cls, tool_category: Optional[ToolModelCategory] = None) -> str:
         """Get the preferred fallback model based on provider priority and tool category.
 
         This method orchestrates model selection by:
@@ -395,8 +398,6 @@ class ModelProviderRegistry:
         Returns:
             Model name string for fallback use
         """
-        from tools.models import ToolModelCategory
-
         effective_category = tool_category or ToolModelCategory.BALANCED
         first_available_model = None
 
@@ -430,7 +431,7 @@ class ModelProviderRegistry:
 
         # Ultimate fallback if no providers have models
         logging.warning("No models available from any provider, using default fallback")
-        return "gemini-2.5-flash"
+        return "gemini-3-flash-preview"
 
     @classmethod
     def get_available_providers_with_keys(cls) -> list[ProviderType]:

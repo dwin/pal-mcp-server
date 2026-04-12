@@ -16,18 +16,15 @@ Key features:
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
-if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
-
-from config import TEMPERATURE_ANALYTICAL
+from shared_types import ToolModelCategory
 from systemprompts import TESTGEN_PROMPT
 from tools.shared.base_models import WorkflowRequest
 
-from .workflow.base import WorkflowTool
+from .workflow.stateful_tool import StatefulTool
 
 logger = logging.getLogger(__name__)
 
@@ -84,15 +81,13 @@ class TestGenRequest(WorkflowRequest):
     temperature: Optional[float] = Field(default=None, exclude=True)
     thinking_mode: Optional[str] = Field(default=None, exclude=True)
 
-    @model_validator(mode="after")
-    def validate_step_one_requirements(self):
-        """Ensure step 1 has required relevant_files field."""
-        if self.step_number == 1 and not self.relevant_files:
-            raise ValueError("Step 1 requires 'relevant_files' field to specify code files to generate tests for")
-        return self
+    # Declarative step-1 validation: require relevant_files on step 1
+    _step_one_required_fields = [
+        ("relevant_files", "Step 1 requires 'relevant_files' field to specify code files to generate tests for"),
+    ]
 
 
-class TestGenTool(WorkflowTool):
+class TestGenTool(StatefulTool):
     """
     Test Generation workflow tool for step-by-step test planning and expert validation.
 
@@ -103,10 +98,6 @@ class TestGenTool(WorkflowTool):
     """
 
     __test__ = False  # Prevent pytest from collecting this class as a test
-
-    def __init__(self):
-        super().__init__()
-        self.initial_request = None
 
     def get_name(self) -> str:
         return "testgen"
@@ -121,72 +112,18 @@ class TestGenTool(WorkflowTool):
     def get_system_prompt(self) -> str:
         return TESTGEN_PROMPT
 
-    def get_default_temperature(self) -> float:
-        return TEMPERATURE_ANALYTICAL
-
-    def get_model_category(self) -> "ToolModelCategory":
-        """Test generation requires thorough analysis and reasoning"""
-        from tools.models import ToolModelCategory
-
-        return ToolModelCategory.EXTENDED_REASONING
+    MODEL_CATEGORY = ToolModelCategory.EXTENDED_REASONING
 
     def get_workflow_request_model(self):
         """Return the test generation workflow-specific request model."""
         return TestGenRequest
 
     def get_input_schema(self) -> dict[str, Any]:
-        """Generate input schema using WorkflowSchemaBuilder with test generation-specific overrides."""
+        """Generate input schema using WorkflowSchemaBuilder with test generation-specific descriptions."""
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Test generation workflow-specific field overrides
-        testgen_field_overrides = {
-            "step": {
-                "type": "string",
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["step"],
-            },
-            "step_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["step_number"],
-            },
-            "total_steps": {
-                "type": "integer",
-                "minimum": 1,
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"],
-            },
-            "next_step_required": {
-                "type": "boolean",
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"],
-            },
-            "findings": {
-                "type": "string",
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["findings"],
-            },
-            "files_checked": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["files_checked"],
-            },
-            "relevant_files": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"],
-            },
-            "confidence": {
-                "type": "string",
-                "enum": ["exploring", "low", "medium", "high", "very_high", "almost_certain", "certain"],
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["confidence"],
-            },
-            "images": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["images"],
-            },
-        }
-
-        # Use WorkflowSchemaBuilder with test generation-specific tool fields
         return WorkflowSchemaBuilder.build_schema(
-            tool_specific_fields=testgen_field_overrides,
+            description_overrides=TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS,
             model_field_schema=self.get_model_field_schema(),
             auto_mode=self.is_effective_auto_mode(),
             tool_name=self.get_name(),

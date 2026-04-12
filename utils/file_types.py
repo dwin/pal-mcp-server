@@ -126,60 +126,12 @@ TEXT_EXTENSIONS = CODE_EXTENSIONS | TEXT_DATA
 IMAGE_EXTENSIONS = IMAGES
 BINARY_EXTENSIONS = BINARIES | ARCHIVES
 
-# All extensions by category for easy access
-FILE_CATEGORIES = {
-    "programming": PROGRAMMING_LANGUAGES,
-    "scripts": SCRIPTS,
-    "configs": CONFIGS,
-    "docs": DOCS,
-    "web": WEB,
-    "text_data": TEXT_DATA,
-    "images": IMAGES,
-    "binaries": BINARIES,
-    "archives": ARCHIVES,
-}
-
-
-def get_file_category(file_path: str) -> str:
-    """
-    Determine the category of a file based on its extension.
-
-    Args:
-        file_path: Path to the file
-
-    Returns:
-        Category name or "unknown" if not recognized
-    """
-    from pathlib import Path
-
-    extension = Path(file_path).suffix.lower()
-
-    for category, extensions in FILE_CATEGORIES.items():
-        if extension in extensions:
-            return category
-
-    return "unknown"
-
-
-def is_code_file(file_path: str) -> bool:
-    """Check if a file is a code file (programming language)."""
-    from pathlib import Path
-
-    return Path(file_path).suffix.lower() in PROGRAMMING_LANGUAGES
-
 
 def is_text_file(file_path: str) -> bool:
     """Check if a file is a text file."""
     from pathlib import Path
 
     return Path(file_path).suffix.lower() in TEXT_EXTENSIONS
-
-
-def is_binary_file(file_path: str) -> bool:
-    """Check if a file is a binary file."""
-    from pathlib import Path
-
-    return Path(file_path).suffix.lower() in BINARY_EXTENSIONS
 
 
 # File-type specific token-to-byte ratios for accurate token estimation

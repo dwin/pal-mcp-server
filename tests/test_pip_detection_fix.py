@@ -28,7 +28,13 @@ class TestPipDetectionFix:
     def test_critical_functions_exist(self):
         """Test that all critical functions are defined in the script."""
         content = Path("./run-server.sh").read_text()
-        critical_functions = ["find_python", "setup_environment", "setup_venv", "install_dependencies", "bootstrap_pip"]
+        critical_functions = [
+            "ensure_uv",
+            "setup_environment",
+            "install_dependencies",
+            "get_venv_python_path",
+            "setup_env_file",
+        ]
 
         for func in critical_functions:
             assert f"{func}()" in content, f"Critical function {func}() not found in script"
@@ -79,26 +85,22 @@ class TestPipDetectionFix:
             assert pip_exe.is_file(), "Pip should be a file"
 
     def test_enhanced_diagnostic_messages_included(self):
-        """Test that our enhanced diagnostic messages are included in the script.
+        """Test that diagnostic messages are included in the script.
 
-        Verify that the script contains the enhanced error diagnostics we added.
+        Verify that the script contains error diagnostics for the uv-based setup.
         """
         content = Path("./run-server.sh").read_text()
 
-        # Check that enhanced diagnostic information is present in the script
-        expected_diagnostic_patterns = [
-            "Enhanced diagnostic information for debugging",
-            "Diagnostic information:",
-            "Python executable:",
-            "Python executable exists:",
-            "Python executable permissions:",
-            "Virtual environment path:",
-            "Virtual environment exists:",
-            "Final diagnostic information:",
+        # Check that key uv-based setup elements are present in the script
+        expected_patterns = [
+            "uv sync",
+            "ensure_uv",
+            "setup_environment",
+            "Python executable not found",
         ]
 
-        for pattern in expected_diagnostic_patterns:
-            assert pattern in content, f"Enhanced diagnostic pattern '{pattern}' should be in script"
+        for pattern in expected_patterns:
+            assert pattern in content, f"Expected pattern '{pattern}' should be in script"
 
     def test_setup_env_file_does_not_create_bsd_backup(self, tmp_path):
         """Ensure setup_env_file avoids creating .env'' artifacts (BSD sed behavior)."""

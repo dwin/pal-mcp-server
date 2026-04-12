@@ -19,6 +19,7 @@ class CodexJSONLParser(BaseParser):
         agent_messages: list[str] = []
         errors: list[str] = []
         usage: dict[str, Any] | None = None
+        thread_id: str | None = None
 
         for line in lines:
             if not line.startswith("{"):
@@ -30,7 +31,11 @@ class CodexJSONLParser(BaseParser):
 
             events.append(event)
             event_type = event.get("type")
-            if event_type == "item.completed":
+            if event_type == "thread.started":
+                tid = event.get("thread_id")
+                if isinstance(tid, str) and tid:
+                    thread_id = tid
+            elif event_type == "item.completed":
                 item = event.get("item") or {}
                 if item.get("type") == "agent_message":
                     text = item.get("text")
@@ -53,6 +58,8 @@ class CodexJSONLParser(BaseParser):
 
         content = "\n\n".join(agent_messages).strip()
         metadata: dict[str, Any] = {"events": events}
+        if thread_id:
+            metadata["session_id"] = thread_id  # Normalize to session_id for consistency
         if errors:
             metadata["errors"] = errors
         if usage:

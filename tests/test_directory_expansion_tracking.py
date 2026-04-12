@@ -12,7 +12,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from tests.mock_helpers import create_mock_provider
 from tools.chat import ChatTool
 from tools.models import ToolOutput
 from utils.conversation_memory import add_turn, create_thread
@@ -37,8 +36,7 @@ class TestDirectoryExpansionTracking:
         files = []
         for i in range(5):
             swift_file = temp_path / f"File{i}.swift"
-            swift_file.write_text(
-                f"""
+            swift_file.write_text(f"""
 import Foundation
 
 class TestClass{i} {{
@@ -46,18 +44,15 @@ class TestClass{i} {{
         return "test{i}"
     }}
 }}
-"""
-            )
+""")
             files.append(str(swift_file))
 
         # Create a Python file as well
         python_file = temp_path / "helper.py"
-        python_file.write_text(
-            """
+        python_file.write_text("""
 def helper_function():
     return "helper"
-"""
-        )
+""")
         files.append(str(python_file))
 
         try:
@@ -76,11 +71,10 @@ def helper_function():
     @pytest.mark.asyncio
     @patch("providers.ModelProviderRegistry.get_provider_for_model")
     async def test_directory_expansion_tracked_in_conversation_memory(
-        self, mock_get_provider, tool, temp_directory_with_files
+        self, mock_get_provider, tool, temp_directory_with_files, mock_provider
     ):
         """Test that directory expansion is properly tracked in conversation memory"""
         # Setup mock provider
-        mock_provider = create_mock_provider()
         mock_get_provider.return_value = mock_provider
 
         directory = temp_directory_with_files["directory"]
@@ -125,7 +119,7 @@ def helper_function():
     @patch("utils.conversation_memory.get_storage")
     @patch("providers.ModelProviderRegistry.get_provider_for_model")
     async def test_conversation_continuation_with_directory_files(
-        self, mock_get_provider, mock_storage, tool, temp_directory_with_files
+        self, mock_get_provider, mock_storage, tool, temp_directory_with_files, mock_provider
     ):
         """Test that conversation continuation works correctly with directory expansion"""
         # Setup mock Redis client with in-memory storage
@@ -144,7 +138,6 @@ def helper_function():
         mock_storage.return_value = mock_client
 
         # Setup mock provider
-        mock_provider = create_mock_provider()
         mock_get_provider.return_value = mock_provider
 
         directory = temp_directory_with_files["directory"]
@@ -287,10 +280,11 @@ def helper_function():
 
     @pytest.mark.asyncio
     @patch("providers.ModelProviderRegistry.get_provider_for_model")
-    async def test_actually_processed_files_stored_correctly(self, mock_get_provider, tool, temp_directory_with_files):
+    async def test_actually_processed_files_stored_correctly(
+        self, mock_get_provider, tool, temp_directory_with_files, mock_provider
+    ):
         """Test that _actually_processed_files is stored correctly after file processing"""
         # Setup mock provider
-        mock_provider = create_mock_provider()
         mock_get_provider.return_value = mock_provider
 
         directory = temp_directory_with_files["directory"]
