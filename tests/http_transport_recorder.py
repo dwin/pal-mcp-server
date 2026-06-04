@@ -293,8 +293,8 @@ class ReplayTransport(httpx.MockTransport):
         """Generate signature for request matching.
 
         Uses semantic matching for reasoning models to avoid cassette breaks from prompt changes.
-        For these models, matches on model name and user prompt only, ignoring system prompts
-        that may change between code versions.
+        For these models, matches on stable semantic request fields such as model name, user prompt,
+        and selected core parameters, while ignoring system prompts that may change between versions.
         """
         # Use method, path, and content hash for matching
         content = request.content
@@ -312,7 +312,7 @@ class ReplayTransport(httpx.MockTransport):
                 content_dict = json.loads(content_str)
 
                 # For reasoning models, use semantic matching to avoid cassette breaks
-                if self._is_o3_model_request(content_dict):
+                if self._is_reasoning_model_request(content_dict):
                     # Extract only the essential fields for matching
                     semantic_dict = self._extract_semantic_fields(content_dict)
                     content_str = json.dumps(semantic_dict, sort_keys=True)
@@ -327,7 +327,7 @@ class ReplayTransport(httpx.MockTransport):
 
         return f"{request.method}:{request.url.path}:{content_hash}"
 
-    def _is_o3_model_request(self, content_dict: dict) -> bool:
+    def _is_reasoning_model_request(self, content_dict: dict) -> bool:
         """Check if this is a reasoning-model request that should use semantic matching."""
         model = content_dict.get("model", "")
         return model.startswith("o3") or model.startswith("gpt-5")
@@ -335,14 +335,15 @@ class ReplayTransport(httpx.MockTransport):
     def _extract_semantic_fields(self, content_dict: dict) -> dict:
         """Extract only semantic fields for matching, ignoring volatile prompts.
 
-        For o3 models, we want to match on:
+        For reasoning models, we want to match on:
         - Model name
         - User's actual question (last user message)
-        - Core parameters (temperature, reasoning effort)
+        - Stable core parameters, such as GPT-5 reasoning effort
 
         We ignore:
         - System prompts (change frequently with code updates)
         - Conversation memory instructions (change with features)
+        - O3 reasoning blocks (provider defaults can shift without changing user intent)
         """
         semantic = {
             "model": content_dict.get("model"),
@@ -391,7 +392,7 @@ class ReplayTransport(httpx.MockTransport):
         content = saved_request.get("content", "")
         if isinstance(content, dict):
             # Apply same semantic matching for reasoning models
-            if self._is_o3_model_request(content):
+            if self._is_reasoning_model_request(content):
                 content = self._extract_semantic_fields(content)
             content_str = json.dumps(content, sort_keys=True)
         else:
