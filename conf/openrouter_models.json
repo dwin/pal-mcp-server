@@ -189,6 +189,23 @@
       "intelligence_score": 14
     },
     {
+      "model_name": "meta-llama/llama-3-70b",
+      "aliases": [
+        "llama",
+        "llama3",
+        "llama-3-70b"
+      ],
+      "context_window": 8192,
+      "max_output_tokens": 8192,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": false,
+      "max_image_size_mb": 0.0,
+      "description": "Meta Llama 3 70B via OpenRouter - general-purpose open-weight text model",
+      "intelligence_score": 10
+    },
+    {
       "model_name": "perplexity/llama-3-sonar-large-32k-online",
       "aliases": [
         "perplexity",

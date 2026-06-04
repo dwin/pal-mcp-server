@@ -292,8 +292,8 @@ class ReplayTransport(httpx.MockTransport):
     def _get_request_signature(self, request: httpx.Request) -> str:
         """Generate signature for request matching.
 
-        Uses semantic matching for o3 models to avoid cassette breaks from prompt changes.
-        For o3 models, matches on model name and user prompt only, ignoring system prompts
+        Uses semantic matching for reasoning models to avoid cassette breaks from prompt changes.
+        For these models, matches on model name and user prompt only, ignoring system prompts
         that may change between code versions.
         """
         # Use method, path, and content hash for matching
@@ -311,7 +311,7 @@ class ReplayTransport(httpx.MockTransport):
             if content_str.strip():
                 content_dict = json.loads(content_str)
 
-                # For o3 models, use semantic matching to avoid cassette breaks
+                # For reasoning models, use semantic matching to avoid cassette breaks
                 if self._is_o3_model_request(content_dict):
                     # Extract only the essential fields for matching
                     semantic_dict = self._extract_semantic_fields(content_dict)
@@ -328,9 +328,9 @@ class ReplayTransport(httpx.MockTransport):
         return f"{request.method}:{request.url.path}:{content_hash}"
 
     def _is_o3_model_request(self, content_dict: dict) -> bool:
-        """Check if this is an o3 model request."""
+        """Check if this is a reasoning-model request that should use semantic matching."""
         model = content_dict.get("model", "")
-        return model.startswith("o3")
+        return model.startswith("o3") or model.startswith("gpt-5")
 
     def _extract_semantic_fields(self, content_dict: dict) -> dict:
         """Extract only semantic fields for matching, ignoring volatile prompts.
@@ -348,26 +348,37 @@ class ReplayTransport(httpx.MockTransport):
             "model": content_dict.get("model"),
             "reasoning": content_dict.get("reasoning"),
         }
+        if semantic["reasoning"] and content_dict.get("model", "").startswith("o3"):
+            semantic.pop("reasoning")
 
-        # Extract only the last user message (actual user question)
-        input_messages = content_dict.get("input", [])
+        # Extract only the last user message (actual user question).
+        # Responses API uses `input`; chat completions uses `messages`.
+        input_messages = content_dict.get("input") or content_dict.get("messages", [])
         if input_messages:
             # Get the last user message content
-            last_msg = input_messages[-1]
-            if isinstance(last_msg, dict) and last_msg.get("role") == "user":
+            for last_msg in reversed(input_messages):
+                if not isinstance(last_msg, dict) or last_msg.get("role") != "user":
+                    continue
+
                 content = last_msg.get("content", [])
-                if isinstance(content, list) and len(content) > 0:
+                if isinstance(content, str):
+                    last_text = content
+                elif isinstance(content, list) and len(content) > 0:
                     # Extract just the text from the last message
                     last_text = content[-1].get("text", "")
-                    # Only include the actual question, not the system instructions
-                    if "=== USER REQUEST ===" in last_text:
-                        # Extract just the user question
-                        parts = last_text.split("=== USER REQUEST ===")
-                        if len(parts) > 1:
-                            user_question = parts[1].split("=== END REQUEST ===")[0].strip()
-                            semantic["user_question"] = user_question
-                    else:
-                        semantic["user_question"] = last_text
+                else:
+                    last_text = ""
+
+                # Only include the actual question, not the system instructions
+                if "=== USER REQUEST ===" in last_text:
+                    # Extract just the user question
+                    parts = last_text.split("=== USER REQUEST ===")
+                    if len(parts) > 1:
+                        user_question = parts[1].split("=== END REQUEST ===")[0].strip()
+                        semantic["user_question"] = user_question
+                else:
+                    semantic["user_question"] = last_text
+                break
 
         return semantic
 
@@ -379,7 +390,7 @@ class ReplayTransport(httpx.MockTransport):
         # Hash the saved content
         content = saved_request.get("content", "")
         if isinstance(content, dict):
-            # Apply same semantic matching for o3 models
+            # Apply same semantic matching for reasoning models
             if self._is_o3_model_request(content):
                 content = self._extract_semantic_fields(content)
             content_str = json.dumps(content, sort_keys=True)

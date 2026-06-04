@@ -67,7 +67,7 @@ class TestCassetteSemanticMatching:
         assert semantic1 == semantic2, "Semantic fields should match despite different prompts"
         assert semantic1["user_question"] == "What is 2 + 2?"
         assert semantic1["model"] == "o3-pro"
-        assert semantic1["reasoning"] == {"effort": "medium"}
+        assert "reasoning" not in semantic1
 
         # Generate signatures - should be identical
         content1 = json.dumps(semantic1, sort_keys=True)

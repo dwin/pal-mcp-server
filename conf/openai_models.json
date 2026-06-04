@@ -464,7 +464,7 @@
       "friendly_name": "OpenAI (O3 mini)",
       "aliases": ["o3mini"],
       "intelligence_score": 10,
-      "description": "O3-mini - Legacy compact reasoning model.",
+      "description": "O3-mini - Legacy compact reasoning model for lower-cost structured analysis and moderate coding tasks.",
       "context_window": 200000,
       "max_output_tokens": 100000,
       "supports_extended_thinking": false,
