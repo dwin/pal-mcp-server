@@ -173,9 +173,9 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         # Create contents structure
         contents = [{"parts": parts}]
 
-        # Gemini 3 Pro Preview currently rejects medium thinking budgets; bump to high.
+        # Gemini Pro previews can reject medium thinking budgets during rollout; bump to high.
         effective_thinking_mode = thinking_mode
-        if resolved_model_name == "gemini-3-pro-preview" and thinking_mode == "medium":
+        if resolved_model_name == "gemini-3.1-pro-preview" and thinking_mode == "medium":
             logger.debug(
                 "Overriding thinking mode 'medium' with 'high' for %s due to launch limitation",
                 resolved_model_name,
@@ -470,12 +470,23 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
         capability_map = self.get_all_model_capabilities()
 
+        def find_first(preferences: list[str]) -> Optional[str]:
+            """Return first available model from an explicit preference list."""
+            for model in preferences:
+                if model in allowed_models:
+                    return model
+            return None
+
         # Helper to find best model from candidates
         def find_best(candidates: list[str]) -> Optional[str]:
             """Return best model from candidates (sorted for consistency)."""
             return sorted(candidates, reverse=True)[0] if candidates else None
 
         if category == ToolModelCategory.EXTENDED_REASONING:
+            preferred = find_first(["gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-3.5-flash"])
+            if preferred:
+                return preferred
+
             # For extended reasoning, prefer models with thinking support
             # First try Pro models that support thinking
             pro_thinking = [
@@ -499,6 +510,10 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                 return find_best(pro_models)
 
         elif category == ToolModelCategory.FAST_RESPONSE:
+            preferred = find_first(["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"])
+            if preferred:
+                return preferred
+
             # Prefer Flash models for speed
             flash_models = [m for m in allowed_models if "flash" in m]
             if flash_models:
@@ -506,6 +521,10 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
         # Default for BALANCED or as fallback
         # Prefer Flash for balanced use, then Pro, then anything
+        preferred = find_first(["gemini-3.5-flash", "gemini-3-flash-preview", "gemini-2.5-flash"])
+        if preferred:
+            return preferred
+
         flash_models = [m for m in allowed_models if "flash" in m]
         if flash_models:
             return find_best(flash_models)
