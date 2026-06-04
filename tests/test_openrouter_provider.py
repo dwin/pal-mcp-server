@@ -74,6 +74,37 @@ class TestOpenRouterProvider:
         assert caps.context_window == 32_768  # Safe default
         assert hasattr(caps, "_is_generic") and caps._is_generic is True
 
+    def test_gpt5_temperature_metadata_matches_endpoint(self):
+        """OpenRouter GPT-5 chat models use range temperature; Responses API models omit it."""
+        provider = OpenRouterProvider(api_key="test-key")
+
+        chat_models = [
+            "openai/gpt-5.5",
+            "openai/gpt-5.4",
+            "openai/gpt-5.4-mini",
+            "openai/gpt-5.2",
+            "openai/gpt-5",
+            "openai/gpt-5-mini",
+        ]
+        for model_name in chat_models:
+            capabilities = provider.get_capabilities(model_name)
+            assert capabilities.use_openai_response_api is False
+            assert capabilities.supports_temperature is True
+            assert capabilities.temperature_constraint.validate(0.5) is True
+            assert capabilities.get_effective_temperature(0.5) == 0.5
+
+        responses_models = [
+            "openai/gpt-5.5-pro",
+            "openai/gpt-5.4-pro",
+            "openai/gpt-5.2-pro",
+            "openai/gpt-5-codex",
+        ]
+        for model_name in responses_models:
+            capabilities = provider.get_capabilities(model_name)
+            assert capabilities.use_openai_response_api is True
+            assert capabilities.supports_temperature is False
+            assert capabilities.get_effective_temperature(0.5) is None
+
     def test_model_alias_resolution(self):
         """Test model alias resolution."""
         provider = OpenRouterProvider(api_key="test-key")

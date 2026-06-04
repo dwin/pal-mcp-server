@@ -202,6 +202,38 @@ class TestOpenAIProvider:
         assert capabilities.supports_streaming is True
         assert capabilities.allow_code_generation is True
 
+    def test_gpt5_temperature_metadata_matches_endpoint(self):
+        """Chat GPT-5 models expose tunable temperature; Responses API models do not."""
+        provider = OpenAIModelProvider("test-key")
+
+        chat_models = [
+            "gpt-5.5",
+            "gpt-5.4",
+            "gpt-5.4-mini",
+            "gpt-5.2",
+            "gpt-5.1-codex-mini",
+            "gpt-5",
+        ]
+        for model_name in chat_models:
+            capabilities = provider.get_capabilities(model_name)
+            assert capabilities.use_openai_response_api is False
+            assert capabilities.supports_temperature is True
+            assert capabilities.temperature_constraint.validate(0.5) is True
+            assert capabilities.get_effective_temperature(0.5) == 0.5
+
+        responses_models = [
+            "gpt-5.5-pro",
+            "gpt-5.4-pro",
+            "gpt-5.2-pro",
+            "gpt-5.1-codex",
+            "gpt-5-codex",
+        ]
+        for model_name in responses_models:
+            capabilities = provider.get_capabilities(model_name)
+            assert capabilities.use_openai_response_api is True
+            assert capabilities.supports_temperature is False
+            assert capabilities.get_effective_temperature(0.5) is None
+
     @patch("providers.openai_compatible.OpenAI")
     def test_generate_content_resolves_alias_before_api_call(self, mock_openai_class):
         """Test that generate_content resolves aliases before making API calls.

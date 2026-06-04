@@ -151,6 +151,35 @@ class TestGeminiProvider:
         assert response.usage["output_tokens"] == 20
         assert response.usage["total_tokens"] == 30
 
+    @patch("google.genai.Client")
+    def test_gemini_31_pro_keeps_medium_thinking_budget(self, mock_client_class):
+        """Gemini 3.1 Pro supports medium thinking and should not be upgraded to high."""
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.text = "Generated content"
+        mock_candidate = Mock()
+        mock_candidate.finish_reason = "STOP"
+        mock_response.candidates = [mock_candidate]
+        mock_usage = Mock()
+        mock_usage.prompt_token_count = 10
+        mock_usage.candidates_token_count = 20
+        mock_response.usage_metadata = mock_usage
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        provider = GeminiModelProvider(api_key="test-key")
+
+        provider.generate_content(
+            prompt="Test prompt",
+            model_name="gemini-3.1-pro-preview",
+            temperature=0.7,
+            thinking_mode="medium",
+        )
+
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        expected_budget = int(32768 * provider.THINKING_BUDGETS["medium"])
+        assert config.thinking_config.thinking_budget == expected_budget
+
 
 class TestOpenAIProvider:
     """Test OpenAI model provider"""
