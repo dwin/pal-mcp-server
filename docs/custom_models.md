@@ -52,18 +52,20 @@ The curated defaults in `conf/openrouter_models.json` include popular entries su
 
 | Alias | Canonical Model | Highlights |
 |-------|-----------------|------------|
-| `opus`, `claude-opus` | `anthropic/claude-opus-4.1` | Flagship Claude reasoning model with vision |
-| `sonnet`, `sonnet4.5` | `anthropic/claude-sonnet-4.5` | Balanced Claude with high context window |
-| `haiku` | `anthropic/claude-3.5-haiku` | Fast Claude option with vision |
-| `pro`, `gemini` | `google/gemini-2.5-pro` | Frontier Gemini with extended thinking |
-| `flash` | `google/gemini-2.5-flash` | Ultra-fast Gemini with vision |
-| `mistral` | `mistralai/mistral-large-2411` | Frontier Mistral (text only) |
+| `opus`, `claude-opus` | `anthropic/claude-opus-4.8` | Current flagship Claude model with 1M context and adaptive thinking |
+| `sonnet`, `sonnet4.6` | `anthropic/claude-sonnet-4.6` | Current Sonnet model with 1M context |
+| `haiku`, `haiku4.5` | `anthropic/claude-haiku-4.5` | Fast Claude option with 200K context |
+| `pro`, `gemini` | `google/gemini-3.1-pro-preview` | Frontier Gemini with extended thinking |
+| `flash` | `google/gemini-3.5-flash` | Current OpenRouter Gemini Flash option with vision |
+| `mistral` | `mistralai/mistral-large-2512` | Frontier Mistral with vision |
 | `llama3` | `meta-llama/llama-3-70b` | Large open-weight text model |
-| `deepseek-r1` | `deepseek/deepseek-r1-0528` | DeepSeek reasoning model |
+| `deepseek` | `deepseek/deepseek-v3.2-speciale` | DeepSeek high-compute reasoning model |
 | `perplexity` | `perplexity/llama-3-sonar-large-32k-online` | Search-augmented model |
+| `gpt5.5`, `5.5`, `latest` | `openai/gpt-5.5` | Latest OpenAI frontier model with 1.05M context |
+| `gpt5.4`, `5.4` | `openai/gpt-5.4` | OpenAI frontier model with 1.05M context at lower cost than GPT-5.5 |
+| `mini`, `gpt5.4-mini` | `openai/gpt-5.4-mini` | Latest OpenAI mini model |
 | `gpt5.2`, `gpt-5.2`, `5.2` | `openai/gpt-5.2` | Flagship GPT-5.2 with reasoning and vision |
-| `gpt5.1-codex`, `codex-5.1` | `openai/gpt-5.1-codex` | Agentic coding specialization (Responses API) |
-| `codex-mini`, `gpt5.1-codex-mini` | `openai/gpt-5.1-codex-mini` | Cost-efficient Codex variant with streaming |
+| `codex-5.2`, `gpt5.2-codex` | `openai/gpt-5.2-codex` | Latest Codex model for long-horizon agentic coding |
 
 Consult the JSON file for the full list, aliases, and capability flags. Add new entries as OpenRouter releases additional models.
 
@@ -77,21 +79,24 @@ View the baseline OpenRouter catalogue in [`conf/openrouter_models.json`](conf/o
 
 Native catalogues (`conf/openai_models.json`, `conf/gemini_models.json`, `conf/xai_models.json`, `conf/dial_models.json`) follow the same schema. Updating those files lets you:
 
-- Expose new aliases (e.g., map `enterprise-pro` to `gpt-5.2-pro`)
+- Expose new aliases (e.g., map `enterprise-pro` to `gpt-5.5-pro`)
 - Advertise support for JSON mode or vision if the upstream provider adds it
 - Adjust token limits when providers increase context windows
 
 ### Latest OpenAI releases
 
-OpenAI's November 13, 2025 drop introduced `gpt-5.1-codex` and `gpt-5.1-codex-mini`, while the flagship base model is now `gpt-5.2`. All of these ship in `conf/openai_models.json`:
+OpenAI's current frontier family is represented in `conf/openai_models.json`:
 
 | Model | Highlights | Notes |
 |-------|------------|-------|
-| `gpt-5.2` | 400K context, 128K output, multimodal IO, configurable reasoning effort | Streaming enabled; use for balanced agent/coding flows |
-| `gpt-5.1-codex` | Responses-only agentic coding version of GPT-5.1 | Streaming disabled; `use_openai_response_api=true`; `allow_code_generation=true` |
-| `gpt-5.1-codex-mini` | Cost-efficient Codex variant | Streaming enabled, retains 400K context and code-generation flag |
+| `gpt-5.5` | 1.05M context, 128K output, multimodal input, configurable reasoning effort | Latest frontier model for complex professional work |
+| `gpt-5.5-pro` | 1.05M context, 128K output, pro reasoning | Responses API by default; expensive and slower |
+| `gpt-5.4` | 1.05M context, 128K output | Strong balanced default at lower cost than GPT-5.5 |
+| `gpt-5.4-mini` | 400K context, 128K output | Latest mini alias target (`mini`) |
+| `gpt-5.4-nano` | 400K context, 128K output | Latest nano alias target (`nano`) |
+| `gpt-5.2-codex` | 400K context, 128K output | Latest Codex specialization |
 
-These entries include pricing-friendly aliases (`gpt5.2`, `codex-5.1`, `codex-mini`) plus updated capability flags (`supports_extended_thinking`, `allow_code_generation`). Copy the manifest if you operate custom deployment names so downstream providers inherit the same metadata.
+These entries include pricing-friendly aliases (`latest`, `gpt5.5`, `gpt5.4`, `mini`, `nano`, `codex-5.2`) plus updated capability flags (`supports_extended_thinking`, `allow_code_generation`). Copy the manifest if you operate custom deployment names so downstream providers inherit the same metadata.
 
 Because providers load the manifests on import, you can tweak capabilities without touching Python. Restart the server after editing the JSON files so changes are picked up.
 

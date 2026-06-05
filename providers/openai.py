@@ -115,11 +115,18 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # Prefer models with extended thinking support
-            # GPT-5.1 Codex first for coding tasks
+            # GPT-5.5 is the current frontier model; pro variants are intentionally
+            # behind the default frontier model because of cost and latency.
             preferred = find_first(
                 [
-                    "gpt-5.1-codex",
+                    "gpt-5.5",
+                    "gpt-5.4",
+                    "gpt-5.2-codex",
                     "gpt-5.2",
+                    "gpt-5.5-pro",
+                    "gpt-5.4-pro",
+                    "gpt-5.1-codex-max",
+                    "gpt-5.1-codex",
                     "gpt-5-codex",
                     "gpt-5.2-pro",
                     "o3-pro",
@@ -131,11 +138,12 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         elif category == ToolModelCategory.FAST_RESPONSE:
             # Prefer fast, cost-efficient models
-            # GPT-5.2 models for speed, GPT-5.1-Codex after (premium pricing but cached)
             preferred = find_first(
                 [
-                    "gpt-5.2",
+                    "gpt-5.4-mini",
+                    "gpt-5.4-nano",
                     "gpt-5.1-codex-mini",
+                    "gpt-5.2",
                     "gpt-5",
                     "gpt-5-mini",
                     "gpt-5-codex",
@@ -147,10 +155,13 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         else:  # BALANCED or default
             # Prefer balanced performance/cost models
-            # Include GPT-5.2 family for latest capabilities
             preferred = find_first(
                 [
+                    "gpt-5.4",
+                    "gpt-5.4-mini",
+                    "gpt-5.5",
                     "gpt-5.2",
+                    "gpt-5.2-codex",
                     "gpt-5.1-codex",
                     "gpt-5",
                     "gpt-5-codex",

@@ -69,16 +69,16 @@ class TestBuggyBehaviorPrevention:
 
         # Verify both aliases and targets are included
         assert "flash" in all_known  # alias
-        assert "gemini-2.5-flash" in all_known  # target
+        assert "gemini-3.5-flash" in all_known  # target
         assert "pro" in all_known  # alias
-        assert "gemini-2.5-pro" in all_known  # target
+        assert "gemini-3.1-pro-preview" in all_known  # target
 
         # Simulate admin restricting to target model names
         service = ModelRestrictionService()
         service.restrictions = {
             ProviderType.GOOGLE: {
-                "gemini-2.5-flash",  # Target name restriction
-                "gemini-2.5-pro",  # Target name restriction
+                "gemini-3.5-flash",  # Target name restriction
+                "gemini-3.1-pro-preview",  # Target name restriction
             }
         }
 
@@ -89,8 +89,8 @@ class TestBuggyBehaviorPrevention:
             # Should NOT warn about these valid target models
             all_warnings = [str(call) for call in mock_logger.warning.call_args_list]
             for warning in all_warnings:
-                assert "gemini-2.5-flash" not in warning or "not a recognized" not in warning
-                assert "gemini-2.5-pro" not in warning or "not a recognized" not in warning
+                assert "gemini-3.5-flash" not in warning or "not a recognized" not in warning
+                assert "gemini-3.1-pro-preview" not in warning or "not a recognized" not in warning
 
     def test_policy_enforcement_remains_comprehensive(self):
         """Policy validation must account for both aliases and targets."""
@@ -111,8 +111,8 @@ class TestBuggyBehaviorPrevention:
             assert not provider.validate_model_name("o3-pro")  # Not in allowed list
             assert not provider.validate_model_name("o3")  # Not in allowed list
 
-            # "mini" now resolves to gpt-5-mini, not o4-mini, so it should be blocked
-            assert not provider.validate_model_name("mini")  # Resolves to gpt-5-mini, which is NOT allowed
+            # "mini" resolves to gpt-5.4-mini, not o4-mini, so it should be blocked
+            assert not provider.validate_model_name("mini")
 
             # But o4mini (the actual alias for o4-mini) should work
             assert provider.validate_model_name("o4mini")  # Resolves to o4-mini, which IS allowed
@@ -127,7 +127,7 @@ class TestBuggyBehaviorPrevention:
             assert "o3-mini" in all_known  # Should be known (and allowed)
             assert "o4-mini" in all_known  # Should be known (and allowed)
             assert "o3-pro" in all_known  # Should be known (but blocked)
-            assert "mini" in all_known  # Should be known (and allowed since it resolves to o4-mini)
+            assert "mini" in all_known  # Should be known (but blocked here because it resolves to gpt-5.4-mini)
 
     def test_alias_aware_listing_extends_canonical_view(self):
         """Alias-aware list should be a superset of restriction-filtered names."""
@@ -149,7 +149,7 @@ class TestBuggyBehaviorPrevention:
             ], f"Alias-aware listing missing baseline model {model}"
 
         # Alias-aware variant should include canonical targets as well
-        for target in ("o4-mini", "o3-mini"):
+        for target in ("gpt-5.4-mini", "o4-mini", "o3-mini"):
             assert target in alias_aware_models, f"Alias-aware listing should include target model {target}"
 
     def test_restriction_validation_uses_alias_aware_variant(self):
@@ -159,8 +159,10 @@ class TestBuggyBehaviorPrevention:
         # Simulate a provider that only returns aliases when asked for models
         alias_only_provider = MagicMock()
         alias_only_provider.MODEL_CAPABILITIES = {
-            "mini": "o4-mini",
+            "mini": "gpt-5.4-mini",
+            "o4mini": "o4-mini",
             "o3mini": "o3-mini",
+            "gpt-5.4-mini": {"context_window": 400000},
             "o4-mini": {"context_window": 200000},
             "o3-mini": {"context_window": 200000},
         }
@@ -173,10 +175,10 @@ class TestBuggyBehaviorPrevention:
             unique = kwargs.get("unique", False)
 
             if respect_restrictions and include_aliases and not lowercase and not unique:
-                return ["mini", "o3mini"]
+                return ["mini", "o4mini", "o3mini"]
 
             if not respect_restrictions and include_aliases and lowercase and unique:
-                return ["mini", "o3mini", "o4-mini", "o3-mini"]
+                return ["mini", "o4mini", "o3mini", "gpt-5.4-mini", "o4-mini", "o3-mini"]
 
             raise AssertionError(f"Unexpected list_models call: {kwargs}")
 
@@ -208,8 +210,8 @@ class TestBuggyBehaviorPrevention:
     def test_alias_listing_covers_targets_for_all_providers(self):
         """Alias-aware listings should expose targets across providers."""
         providers_to_test = [
-            (OpenAIModelProvider(api_key="test-key"), "mini", "o4-mini"),
-            (GeminiModelProvider(api_key="test-key"), "flash", "gemini-2.5-flash"),
+            (OpenAIModelProvider(api_key="test-key"), "mini", "gpt-5.4-mini"),
+            (GeminiModelProvider(api_key="test-key"), "flash", "gemini-3.5-flash"),
         ]
 
         for provider, alias, target in providers_to_test:

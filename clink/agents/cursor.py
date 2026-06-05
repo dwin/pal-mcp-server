@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import shutil
 import tempfile
@@ -11,7 +10,7 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from clink.models import ResolvedCLIClient, ResolvedCLIRole
+from clink.models import ResolvedCLIRole
 from clink.parsers.base import ParserError
 
 from .base import AgentOutput, BaseCLIAgent, CLIAgentError

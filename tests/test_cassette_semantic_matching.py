@@ -1,8 +1,8 @@
 """
 Tests for cassette semantic matching to prevent breaks from prompt changes.
 
-This validates that o3 model cassettes match on semantic content (model + user question)
-rather than exact request bodies, preventing cassette breaks when system prompts change.
+This validates that reasoning-model cassettes match on semantic content rather than exact
+request bodies, preventing cassette breaks when system prompts change.
 """
 
 import hashlib
@@ -67,7 +67,7 @@ class TestCassetteSemanticMatching:
         assert semantic1 == semantic2, "Semantic fields should match despite different prompts"
         assert semantic1["user_question"] == "What is 2 + 2?"
         assert semantic1["model"] == "o3-pro"
-        assert semantic1["reasoning"] == {"effort": "medium"}
+        assert "reasoning" not in semantic1
 
         # Generate signatures - should be identical
         content1 = json.dumps(semantic1, sort_keys=True)
@@ -77,8 +77,8 @@ class TestCassetteSemanticMatching:
 
         assert hash1 == hash2, "Hashes should match for same semantic content"
 
-    def test_non_o3_model_exact_matching(self, dummy_cassette):
-        """Test that non-o3 models still use exact matching."""
+    def test_non_reasoning_model_exact_matching(self, dummy_cassette):
+        """Test that non-reasoning models still use exact matching."""
         transport = ReplayTransport(str(dummy_cassette))
 
         request_body = {
@@ -87,7 +87,7 @@ class TestCassetteSemanticMatching:
         }
 
         # Should not use semantic matching
-        assert not transport._is_o3_model_request(request_body)
+        assert not transport._is_reasoning_model_request(request_body)
 
     def test_o3_mini_semantic_matching(self, dummy_cassette):
         """Test that o3-mini also uses semantic matching."""
@@ -106,9 +106,32 @@ class TestCassetteSemanticMatching:
             ],
         }
 
-        assert transport._is_o3_model_request(request_body)
+        assert transport._is_reasoning_model_request(request_body)
         semantic = transport._extract_semantic_fields(request_body)
         assert semantic["model"] == "o3-mini"
+        assert semantic["user_question"] == "Test"
+
+    def test_gpt5_reasoning_semantic_matching_keeps_reasoning(self, dummy_cassette):
+        """Test that GPT-5 requests use semantic matching and keep reasoning effort."""
+        transport = ReplayTransport(str(dummy_cassette))
+
+        request_body = {
+            "model": "gpt-5.5",
+            "reasoning": {"effort": "medium"},
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "System...\n\n=== USER REQUEST ===\nTest\n=== END REQUEST ==="}
+                    ],
+                }
+            ],
+        }
+
+        assert transport._is_reasoning_model_request(request_body)
+        semantic = transport._extract_semantic_fields(request_body)
+        assert semantic["model"] == "gpt-5.5"
+        assert semantic["reasoning"] == {"effort": "medium"}
         assert semantic["user_question"] == "Test"
 
     def test_o3_without_request_markers(self, dummy_cassette):
